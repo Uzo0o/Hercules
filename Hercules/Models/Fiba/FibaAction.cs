@@ -12,13 +12,13 @@ public class FibaPlayByPlay
 public class FibaAction
 {
     [JsonPropertyName("actionNumber")]
-    public int ActionNumber { get; set; } // Unique id for this action; repeated if the action is later edited
+    public int ActionNumber { get; set; }
 
     [JsonPropertyName("subType")]
     public string SubType { get; set; } = string.Empty;
 
     [JsonPropertyName("actionType")]
-    public string ActionType { get; set; } = string.Empty; // e.g., "3pt", "foul"
+    public string ActionType { get; set; } = string.Empty;
 
     [JsonPropertyName("teamNumber")]
     public int TeamNumber { get; set; }
@@ -27,13 +27,16 @@ public class FibaAction
     public int PlayerNumber { get; set; }
 
     [JsonPropertyName("score1")]
-    public int Score1 { get; set; } // Home Score
+    public int Score1 { get; set; }
 
     [JsonPropertyName("score2")]
-    public int Score2 { get; set; } // Away Score
-    
+    public int Score2 { get; set; }
+
+    [JsonPropertyName("period")]
+    public int Period { get; set; }
+
     [JsonPropertyName("clock")]
-    public string Clock { get; set; } = string.Empty; // e.g., "10:00:00"
+    public string Clock { get; set; } = string.Empty;
 }
 
 public class FibaScore

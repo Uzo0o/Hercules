@@ -8,37 +8,50 @@
         <vm:ManualControlViewModel/>
     </Design.DataContext>
 
-    <StackPanel Spacing="20" Margin="10">
+    <StackPanel Spacing="24">
         <Grid ColumnDefinitions="*, Auto">
-            <TextBlock Grid.Column="0" Text="Manual Override &amp; Testing" FontSize="22" FontWeight="SemiBold" Foreground="White" VerticalAlignment="Center"/>
-            <Button Grid.Column="1" Content="Refresh Sources" Click="Refresh_Click" Background="#2D2D30" Foreground="White" Padding="15,8"/>
+            <TextBlock Grid.Column="0" Classes="PageTitle" Text="Manual Override &amp; Testing" VerticalAlignment="Center"/>
+            <Button Grid.Column="1" Classes="BtnSecondary" Content="Refresh Sources" Click="Refresh_Click"/>
         </Grid>
 
-        <!-- Selection Grid -->
-        <Grid ColumnDefinitions="*, *" RowDefinitions="Auto, Auto" Margin="0,10">
-            <TextBlock Grid.Row="0" Grid.Column="0" Text="Target Graphic:" Foreground="#CCCCCC" Margin="0,0,0,5"/>
-            <ComboBox Grid.Row="1" Grid.Column="0" Classes="FlatDropdown" Margin="0,0,10,0" HorizontalAlignment="Stretch"
-                      ItemsSource="{Binding AvailableInputs}" SelectedItem="{Binding SelectedInput}">
-                <ComboBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding Title}"/></DataTemplate></ComboBox.ItemTemplate>
-            </ComboBox>
+        <!-- Selection Card -->
+        <Border Classes="Card">
+            <Grid ColumnDefinitions="*, *" RowDefinitions="Auto, Auto" ColumnSpacing="20">
+                <TextBlock Grid.Row="0" Grid.Column="0" Classes="Label" Text="Target Graphic" Margin="0,0,0,8"/>
+                <ComboBox Grid.Row="1" Grid.Column="0" Classes="FlatDropdown" HorizontalAlignment="Stretch"
+                          ItemsSource="{Binding AvailableInputs}" SelectedItem="{Binding SelectedInput}"
+                          PlaceholderText="Target vMix Graphic...">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate><TextBlock Text="{Binding Title}"/></DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
 
-            <TextBlock Grid.Row="0" Grid.Column="1" Text="Target Field:" Foreground="#CCCCCC" Margin="0,0,0,5"/>
-            <ComboBox Grid.Row="1" Grid.Column="1" Classes="FlatDropdown" HorizontalAlignment="Stretch"
-                      ItemsSource="{Binding AvailableFields}" SelectedItem="{Binding SelectedField}">
-                <ComboBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
-            </ComboBox>
-        </Grid>
+                <TextBlock Grid.Row="0" Grid.Column="1" Classes="Label" Text="Target Field" Margin="0,0,0,8"/>
+                <ComboBox Grid.Row="1" Grid.Column="1" Classes="FlatDropdown" HorizontalAlignment="Stretch"
+                          ItemsSource="{Binding AvailableFields}" SelectedItem="{Binding SelectedField}"
+                          PlaceholderText="Target Field...">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate><TextBlock Text="{Binding Name}"/></DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
+            </Grid>
+        </Border>
 
         <!-- Control Pad -->
-        <Border Background="#252525" CornerRadius="8" Padding="20">
-            <Grid ColumnDefinitions="Auto, *, Auto, Auto">
-                <Button Grid.Column="0" Content="-1" Click="Minus_Click" FontSize="24" Background="#4A2525" Foreground="White" Width="60" Height="60" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"/>
-                
-                <TextBox Grid.Column="1" Text="{Binding CurrentValue, Mode=TwoWay}" FontSize="24" TextAlignment="Center" Margin="20,0" VerticalContentAlignment="Center"/>
-                
-                <Button Grid.Column="2" Content="+1" Click="Plus_Click" FontSize="24" Background="#254A25" Foreground="White" Width="60" Height="60" Margin="0,0,20,0" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"/>
-                
-                <Button Grid.Column="3" Content="Push" Click="Push_Click" FontSize="20" Background="#2D2D30" Foreground="White" Width="100" Height="60" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"/>
+        <Border Classes="Card">
+            <Grid ColumnDefinitions="Auto, *, Auto, Auto" VerticalAlignment="Center">
+                <Button Grid.Column="0" Classes="BtnClose" Width="60" Height="60" Click="Minus_Click">
+                    <TextBlock Text="-1" FontSize="22" FontWeight="SemiBold" Foreground="{DynamicResource AccentDanger}"/>
+                </Button>
+
+                <TextBox Grid.Column="1" Classes="FlatInput" Text="{Binding CurrentValue, Mode=TwoWay}"
+                         FontSize="24" TextAlignment="Center" Margin="20,0" VerticalContentAlignment="Center"/>
+
+                <Button Grid.Column="2" Classes="BtnGreen" Content="+1" FontSize="22" Width="60" Height="60"
+                        Margin="0,0,20,0" Click="Plus_Click"/>
+
+                <Button Grid.Column="3" Classes="BtnPrimary" Content="Push" FontSize="16" Width="100" Height="60"
+                        Click="Push_Click"/>
             </Grid>
         </Border>
     </StackPanel>

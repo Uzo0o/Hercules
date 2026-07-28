@@ -2,64 +2,74 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         x:Class="Hercules.Views.MainWindow"
         Title="Hercules"
-        Width="1024" Height="768"
+        Width="1200" Height="800"
         WindowStartupLocation="CenterScreen"
-        Background="#1E1E1E"
-        
+        Background="{DynamicResource BgBase}"
         SystemDecorations="None"
         FontFamily="{StaticResource Poppins}">
 
-    <Grid RowDefinitions="40, *" ColumnDefinitions="250, *">
-        
-        <!-- TOPBAR -->
-        <Grid Grid.Row="0" Grid.ColumnSpan="2" Background="#252525" 
+    <Grid RowDefinitions="36, *" ColumnDefinitions="260, *">
+
+        <!-- TITLE BAR -->
+        <Grid Grid.Row="0" Grid.ColumnSpan="2" Background="{DynamicResource BgBase}"
               PointerPressed="Topbar_PointerPressed">
-            <TextBlock Text="Hercules Studio" 
-                       Foreground="#888888" 
-                       FontWeight="SemiBold" 
-                       VerticalAlignment="Center" 
-                       Margin="20,0"/>
-            
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="0">
-                <Button Content="—" Width="45" Background="Transparent" Foreground="#888888" BorderThickness="0" Click="Minimize_Click"/>
-                <Button Content="✕" Width="45" Background="Transparent" Foreground="#888888" BorderThickness="0" Click="Close_Click"/>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+
+            <TextBlock Grid.Column="0"
+                       Text="Hercules - Production Environment"
+                       Foreground="{DynamicResource TextSecondary}"
+                       FontWeight="SemiBold"
+                       FontSize="13"
+                       VerticalAlignment="Center"
+                       Margin="16,0"/>
+
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="0">
+                <Button Content="—" Width="45" Background="Transparent" Foreground="{DynamicResource TextSecondary}"
+                        BorderThickness="0" Click="Minimize_Click"/>
+                <Button Content="✕" Width="45" Background="Transparent" Foreground="{DynamicResource TextSecondary}"
+                        BorderThickness="0" Click="Close_Click"/>
             </StackPanel>
         </Grid>
 
+        <!-- Hairline under the title bar -->
+        <Rectangle Grid.Row="0" Grid.ColumnSpan="2" Height="1" VerticalAlignment="Bottom"
+                   Fill="{DynamicResource BorderSubtle}"/>
+
         <!-- SIDEBAR -->
-        <Border Grid.Row="1" Grid.Column="0" Background="#1A1A1A">
-            <StackPanel Spacing="5" Margin="10,20">
-        
-                <!-- Added Click="NavDashboard_Click" -->
-                <Button Classes="SidebarBtn" Click="NavDashboard_Click">
-                    <StackPanel Orientation="Horizontal" Spacing="15">
-                        <PathIcon Data="{StaticResource IconDashboard}" Width="16" Height="16"/>
+        <Border Grid.Row="1" Grid.Column="0" Background="{DynamicResource BgPanel}"
+                BorderBrush="{DynamicResource BorderSubtle}" BorderThickness="0,0,1,0">
+            <StackPanel Spacing="8" Margin="12,24">
+
+                <Button x:Name="NavDashboardBtn" Classes="SidebarBtn Active" Click="NavDashboard_Click">
+                    <StackPanel Orientation="Horizontal" Spacing="12">
+                        <PathIcon Data="{StaticResource IconDashboard}" Width="18" Height="18"/>
                         <TextBlock Text="Dashboard" VerticalAlignment="Center"/>
                     </StackPanel>
                 </Button>
-                
-                <Button Classes="SidebarBtn" Click="ManualControl_Click">
-                    <StackPanel Orientation="Horizontal" Spacing="15">
-                        <PathIcon Data="{StaticResource IconDashboard}" Width="16" Height="16"/>
+
+                <Button x:Name="NavManualBtn" Classes="SidebarBtn" Click="ManualControl_Click">
+                    <StackPanel Orientation="Horizontal" Spacing="12">
+                        <PathIcon Data="{StaticResource IconDashboard}" Width="18" Height="18"/>
                         <TextBlock Text="Manual Control" VerticalAlignment="Center"/>
                     </StackPanel>
                 </Button>
-        
-                <!-- Added Click="NavVmix_Click" -->
-                <Button Classes="SidebarBtn" Click="NavVmix_Click">
-                    <StackPanel Orientation="Horizontal" Spacing="15">
-                        <PathIcon Data="{StaticResource IconSettings}" Width="16" Height="16"/>
+
+                <Button x:Name="NavVmixBtn" Classes="SidebarBtn" Click="NavVmix_Click">
+                    <StackPanel Orientation="Horizontal" Spacing="12">
+                        <PathIcon Data="{StaticResource IconSettings}" Width="18" Height="18"/>
                         <TextBlock Text="vMix Connection" VerticalAlignment="Center"/>
                     </StackPanel>
                 </Button>
-                
-        
+
             </StackPanel>
         </Border>
 
         <!-- CENTRAL CONTENT AREA -->
-        <Border Grid.Row="1" Grid.Column="1" Background="#151515">
-            <ContentControl x:Name="ScreenRouter" Margin="20"/>
+        <Border Grid.Row="1" Grid.Column="1" Background="{DynamicResource BgBase}">
+            <ContentControl x:Name="ScreenRouter" Margin="40,32"/>
         </Border>
 
     </Grid>

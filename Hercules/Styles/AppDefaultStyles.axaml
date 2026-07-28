@@ -1,10 +1,279 @@
 ﻿<Styles xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <Design.PreviewWith>
-        <Border Padding="20">
-            <Button Content="Hello World!"></Button>
+        <Border Padding="20" Background="#181716">
+            <StackPanel Spacing="10">
+                <Button Classes="BtnPrimary" Content="+ Add Connection"/>
+                <Button Classes="BtnSecondary" Content="Refresh vMix Sources"/>
+                <Button Classes="BtnGreen" Content="Connect to FIBA"/>
+            </StackPanel>
         </Border>
     </Design.PreviewWith>
 
-    <!-- Add Styles Here -->
+    <!-- =====================================================================
+         DESIGN TOKENS
+         Mirrors the :root variables from the HTML mockup 1:1 so the two stay
+         in sync. Anything visual should pull from here, not a raw hex code.
+    ===================================================================== -->
+    <Styles.Resources>
+        <ResourceDictionary>
+
+            <!-- Backgrounds -->
+            <Color x:Key="BgBaseColor">#181716</Color>
+            <Color x:Key="BgPanelColor">#23211F</Color>
+            <Color x:Key="BgElementColor">#2E2B29</Color>
+            <Color x:Key="BgHoverColor">#3A3633</Color>
+            <Color x:Key="BorderSubtleColor">#3A3633</Color>
+
+            <!-- Text -->
+            <Color x:Key="TextPrimaryColor">#F0EBE6</Color>
+            <Color x:Key="TextSecondaryColor">#A39C97</Color>
+
+            <!-- Accents -->
+            <Color x:Key="AccentOrangeColor">#D97746</Color>
+            <Color x:Key="AccentOrangeHoverColor">#E88755</Color>
+            <Color x:Key="AccentGreenColor">#10B981</Color>
+            <Color x:Key="AccentGreenHoverColor">#059669</Color>
+            <Color x:Key="AccentDangerColor">#EF4444</Color>
+
+            <!-- Tinted surfaces (used behind the accent-colored pills/labels) -->
+            <Color x:Key="AccentOrangeTintColor">#1AD97746</Color>
+            <Color x:Key="AccentGreenTintColor">#1A10B981</Color>
+            <Color x:Key="AccentDangerTintColor">#1AEF4444</Color>
+            <Color x:Key="TextSecondaryTintColor">#1AA39C97</Color>
+
+            <SolidColorBrush x:Key="BgBase" Color="{StaticResource BgBaseColor}"/>
+            <SolidColorBrush x:Key="BgPanel" Color="{StaticResource BgPanelColor}"/>
+            <SolidColorBrush x:Key="BgElement" Color="{StaticResource BgElementColor}"/>
+            <SolidColorBrush x:Key="BgHover" Color="{StaticResource BgHoverColor}"/>
+            <SolidColorBrush x:Key="BorderSubtle" Color="{StaticResource BorderSubtleColor}"/>
+
+            <SolidColorBrush x:Key="TextPrimary" Color="{StaticResource TextPrimaryColor}"/>
+            <SolidColorBrush x:Key="TextSecondary" Color="{StaticResource TextSecondaryColor}"/>
+
+            <SolidColorBrush x:Key="AccentOrange" Color="{StaticResource AccentOrangeColor}"/>
+            <SolidColorBrush x:Key="AccentOrangeHover" Color="{StaticResource AccentOrangeHoverColor}"/>
+            <SolidColorBrush x:Key="AccentGreen" Color="{StaticResource AccentGreenColor}"/>
+            <SolidColorBrush x:Key="AccentGreenHover" Color="{StaticResource AccentGreenHoverColor}"/>
+            <SolidColorBrush x:Key="AccentDanger" Color="{StaticResource AccentDangerColor}"/>
+
+            <SolidColorBrush x:Key="AccentOrangeTint" Color="{StaticResource AccentOrangeTintColor}"/>
+            <SolidColorBrush x:Key="AccentGreenTint" Color="{StaticResource AccentGreenTintColor}"/>
+            <SolidColorBrush x:Key="AccentDangerTint" Color="{StaticResource AccentDangerTintColor}"/>
+            <SolidColorBrush x:Key="TextSecondaryTint" Color="{StaticResource TextSecondaryTintColor}"/>
+
+            <!-- Radii -->
+            <CornerRadius x:Key="RadiusSm">6</CornerRadius>
+            <CornerRadius x:Key="RadiusMd">10</CornerRadius>
+            <CornerRadius x:Key="RadiusLg">16</CornerRadius>
+            <CornerRadius x:Key="RadiusPill">20</CornerRadius>
+
+        </ResourceDictionary>
+    </Styles.Resources>
+
+    <!-- =====================================================================
+         TYPOGRAPHY
+    ===================================================================== -->
+    <Style Selector="TextBlock.PageTitle">
+        <Setter Property="FontSize" Value="22"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="Foreground" Value="{StaticResource TextPrimary}"/>
+    </Style>
+
+    <Style Selector="TextBlock.Label">
+        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="FontWeight" Value="Medium"/>
+        <Setter Property="Foreground" Value="{StaticResource TextSecondary}"/>
+    </Style>
+
+    <Style Selector="TextBlock.Muted">
+        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="Foreground" Value="{StaticResource TextSecondary}"/>
+    </Style>
+
+    <!-- =====================================================================
+         BUTTONS
+    ===================================================================== -->
+
+    <!-- Base look shared by every button class below -->
+    <Style Selector="Button.BtnPrimary, Button.BtnSecondary, Button.BtnGreen, Button.BtnClose">
+        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="CornerRadius" Value="{StaticResource RadiusSm}"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="Transitions">
+            <Transitions>
+                <BrushTransition Property="Background" Duration="0:0:0.15"/>
+            </Transitions>
+        </Setter>
+    </Style>
+
+    <!-- Primary (orange) - main call to action, e.g. "+ Add Connection" -->
+    <Style Selector="Button.BtnPrimary">
+        <Setter Property="Background" Value="{StaticResource AccentOrange}"/>
+        <Setter Property="Foreground" Value="White"/>
+        <Setter Property="Padding" Value="18,10"/>
+        <Setter Property="BorderThickness" Value="0"/>
+    </Style>
+    <Style Selector="Button.BtnPrimary:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="{StaticResource AccentOrangeHover}"/>
+    </Style>
+
+    <!-- Secondary (neutral) - e.g. "Refresh vMix Sources" -->
+    <Style Selector="Button.BtnSecondary">
+        <Setter Property="Background" Value="{StaticResource BgElement}"/>
+        <Setter Property="Foreground" Value="{StaticResource TextPrimary}"/>
+        <Setter Property="BorderBrush" Value="{StaticResource BorderSubtle}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="Padding" Value="18,10"/>
+    </Style>
+    <Style Selector="Button.BtnSecondary:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="{StaticResource BgHover}"/>
+    </Style>
+
+    <!-- Green (connect / positive action) -->
+    <Style Selector="Button.BtnGreen">
+        <Setter Property="Background" Value="{StaticResource AccentGreen}"/>
+        <Setter Property="Foreground" Value="White"/>
+        <Setter Property="Padding" Value="20,10"/>
+        <Setter Property="BorderThickness" Value="0"/>
+    </Style>
+    <Style Selector="Button.BtnGreen:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="{StaticResource AccentGreenHover}"/>
+    </Style>
+
+    <!-- Small icon-only close/remove button, e.g. the X on a mapping row -->
+    <Style Selector="Button.BtnClose">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Foreground" Value="{StaticResource TextSecondary}"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="Width" Value="34"/>
+        <Setter Property="Height" Value="34"/>
+        <Setter Property="Padding" Value="0"/>
+        <Setter Property="HorizontalContentAlignment" Value="Center"/>
+        <Setter Property="VerticalContentAlignment" Value="Center"/>
+    </Style>
+    <Style Selector="Button.BtnClose:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="{StaticResource AccentDangerTint}"/>
+    </Style>
+    <Style Selector="Button.BtnClose:pointerover">
+        <Setter Property="Foreground" Value="{StaticResource AccentDanger}"/>
+    </Style>
+
+    <!-- =====================================================================
+         SIDEBAR NAVIGATION
+         Toggle the "Active" class from code-behind on the currently
+         selected nav button (see MainWindow.axaml.cs).
+    ===================================================================== -->
+    <Style Selector="Button.SidebarBtn">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Foreground" Value="{StaticResource TextSecondary}"/>
+        <Setter Property="HorizontalAlignment" Value="Stretch"/>
+        <Setter Property="HorizontalContentAlignment" Value="Left"/>
+        <Setter Property="FontSize" Value="14"/>
+        <Setter Property="FontWeight" Value="Medium"/>
+        <Setter Property="Padding" Value="16,12"/>
+        <Setter Property="CornerRadius" Value="{StaticResource RadiusMd}"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="Transitions">
+            <Transitions>
+                <BrushTransition Property="Background" Duration="0:0:0.2"/>
+            </Transitions>
+        </Setter>
+    </Style>
+    <Style Selector="Button.SidebarBtn:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="{StaticResource BgElement}"/>
+    </Style>
+    <Style Selector="Button.SidebarBtn:pointerover">
+        <Setter Property="Foreground" Value="{StaticResource TextPrimary}"/>
+    </Style>
+
+    <!-- Active state: tinted orange background + left accent border, like .nav-btn.active -->
+    <Style Selector="Button.SidebarBtn.Active">
+        <Setter Property="Foreground" Value="{StaticResource AccentOrange}"/>
+        <Setter Property="Background" Value="{StaticResource AccentOrangeTint}"/>
+        <Setter Property="BorderBrush" Value="{StaticResource AccentOrange}"/>
+        <Setter Property="BorderThickness" Value="3,0,0,0"/>
+    </Style>
+    <Style Selector="Button.SidebarBtn.Active:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="{StaticResource AccentOrangeTint}"/>
+    </Style>
+
+    <!-- =====================================================================
+         CARDS / PANELS
+         .Card = large rounded panel (FIBA connection bar).
+         .Row  = smaller rounded panel used per mapping row, with hover feedback.
+    ===================================================================== -->
+    <Style Selector="Border.Card">
+        <Setter Property="Background" Value="{StaticResource BgPanel}"/>
+        <Setter Property="BorderBrush" Value="{StaticResource BorderSubtle}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="{StaticResource RadiusLg}"/>
+        <Setter Property="Padding" Value="24"/>
+        <Setter Property="BoxShadow" Value="0 4 20 0 #4D000000"/>
+    </Style>
+
+    <Style Selector="Border.Row">
+        <Setter Property="Background" Value="{StaticResource BgPanel}"/>
+        <Setter Property="BorderBrush" Value="{StaticResource BorderSubtle}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="{StaticResource RadiusMd}"/>
+        <Setter Property="Padding" Value="16"/>
+        <Setter Property="Transitions">
+            <Transitions>
+                <BrushTransition Property="BorderBrush" Duration="0:0:0.2"/>
+            </Transitions>
+        </Setter>
+    </Style>
+    <Style Selector="Border.Row:pointerover">
+        <Setter Property="BorderBrush" Value="{StaticResource BgHover}"/>
+    </Style>
+
+    <!-- =====================================================================
+         STATUS PILL - the little bullet "Connected" / "Disconnected" badge
+    ===================================================================== -->
+    <Style Selector="Border.StatusPill">
+        <Setter Property="Background" Value="{StaticResource TextSecondaryTint}"/>
+        <Setter Property="CornerRadius" Value="{StaticResource RadiusPill}"/>
+        <Setter Property="Padding" Value="12,6"/>
+    </Style>
+    <Style Selector="Border.StatusPill TextBlock">
+        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="Foreground" Value="{StaticResource TextSecondary}"/>
+    </Style>
+    <Style Selector="Border.StatusPill.Connected">
+        <Setter Property="Background" Value="{StaticResource AccentGreenTint}"/>
+    </Style>
+    <Style Selector="Border.StatusPill.Connected TextBlock">
+        <Setter Property="Foreground" Value="{StaticResource AccentGreen}"/>
+    </Style>
+
+    <!-- =====================================================================
+         INPUTS
+    ===================================================================== -->
+    <Style Selector="TextBox.FlatInput">
+        <Setter Property="Background" Value="{StaticResource BgBase}"/>
+        <Setter Property="BorderBrush" Value="{StaticResource BorderSubtle}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="Foreground" Value="{StaticResource TextPrimary}"/>
+        <Setter Property="CaretBrush" Value="{StaticResource TextPrimary}"/>
+        <Setter Property="CornerRadius" Value="{StaticResource RadiusSm}"/>
+        <Setter Property="Padding" Value="12,8"/>
+        <Setter Property="FontSize" Value="14"/>
+    </Style>
+
+    <Style Selector="ComboBox.FlatDropdown">
+        <Setter Property="Background" Value="{StaticResource BgBase}"/>
+        <Setter Property="BorderBrush" Value="{StaticResource BorderSubtle}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="Foreground" Value="{StaticResource TextPrimary}"/>
+        <Setter Property="CornerRadius" Value="{StaticResource RadiusSm}"/>
+        <Setter Property="Padding" Value="14,10"/>
+        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="MinHeight" Value="0"/>
+        <Setter Property="PlaceholderForeground" Value="{StaticResource TextSecondary}"/>
+    </Style>
+
 </Styles>

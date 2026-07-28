@@ -52,13 +52,12 @@ public partial class DashboardView : UserControl
         if (DataContext is DashboardViewModel vm)
         {
             vm.ToggleFibaConnection();
-        
-            // Update the button text depending on what we just did
-            if (sender is Button btn)
-            {
-                btn.Content = vm.IsFibaConnected ? "Disconnect" : "Connect to FIBA";
-                btn.Background = vm.IsFibaConnected ? Avalonia.Media.Brushes.DarkRed : Avalonia.Media.SolidColorBrush.Parse("#254A25");
-            }
+
+            FibaConnectBtn.Content = vm.IsFibaConnected ? "Disconnect" : "Connect to FIBA";
+            FibaConnectBtn.Classes.Set("BtnGreen", !vm.IsFibaConnected);
+            FibaConnectBtn.Classes.Set("BtnSecondary", vm.IsFibaConnected);
+
+            FibaStatusPill.Classes.Set("Connected", vm.IsFibaConnected);
         }
     }
 }
