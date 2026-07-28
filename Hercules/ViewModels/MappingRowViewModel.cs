@@ -2,13 +2,19 @@
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using Hercules.Models;
+using Hercules.Models.Fiba;
 
 namespace Hercules.ViewModels;
 
 public class MappingRowViewModel : INotifyPropertyChanged
 {
-    // 1. FIBA Stat Selection
-    public string? SelectedFibaStat { get; set; }
+    // 1. FIBA Stat Selection - a real definition from FibaStatRegistry, not a magic string
+    public FibaStatDefinition? SelectedFibaStat { get; set; }
+
+    // The last value actually sent to vMix for this row. Used so we only
+    // fire a SetText command when the value genuinely changes, instead of
+    // on every single FIBA action.
+    public string? LastSentValue { get; set; }
 
     // 2. vMix Graphic Selection
     private VmixInput? _selectedInput;

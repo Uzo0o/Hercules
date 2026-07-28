@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Net.Sockets;
 using System.Text;
@@ -16,9 +17,18 @@ public class FibaService
     private StreamWriter? _writer;
     private CancellationTokenSource? _cancellationTokenSource;
 
+    // FIBA resends the FULL action history on every "playbyplay" message, not just
+    // the newest one. This tracks what we've already broadcast (keyed by actionNumber,
+    // valued by a signature of its content) so we only fire OnActionReceived for
+    // actions that are genuinely new or have been edited.
+    private readonly Dictionary<int, string> _seenActions = new();
+
+    public FibaGameState GameState { get; } = new();
+
     public event Action<FibaMatchInformation>? OnMatchInfoReceived;
     public event Action<FibaTeam>? OnTeamSetupReceived;
     public event Action<FibaAction>? OnActionReceived;
+    public event Action? OnGameStateChanged;
     public event Action<string>? OnConnectionStatusChanged;
 
     public async Task ConnectAsync(string ip = "127.0.0.1", int port = 7677)
@@ -29,6 +39,8 @@ public class FibaService
             Console.WriteLine($"[FIBA DEBUG] Initiating connection to {ip}:{port}...");
             OnConnectionStatusChanged?.Invoke("Connecting to FIBA...");
             
+            _seenActions.Clear();
+
             _tcpClient = new TcpClient();
             await _tcpClient.ConnectAsync(ip, port);
             
@@ -143,10 +155,39 @@ public class FibaService
                         var pbp = JsonSerializer.Deserialize<FibaPlayByPlay>(json);
                         if (pbp != null && pbp.Actions != null)
                         {
-                            // Loop through every action in the array and broadcast it
+                            // The feed re-sends the entire action list every time, so only
+                            // broadcast actions we haven't seen, or whose content changed
+                            // (an edit/correction reusing the same actionNumber).
+                            bool anyNewOrChanged = false;
+
                             foreach (var action in pbp.Actions)
                             {
+                                // Signature of the fields that actually matter for output.
+                                // If FIBA edits an action (e.g. corrects a score or clock),
+                                // this signature changes and we re-broadcast it.
+                                string signature = $"{action.ActionType}|{action.SubType}|{action.Score1}|{action.Score2}|{action.Clock}|{action.Period}|{action.TeamNumber}|{action.PlayerNumber}";
+
+                                if (_seenActions.TryGetValue(action.ActionNumber, out var previousSignature)
+                                    && previousSignature == signature)
+                                {
+                                    continue; // already processed, nothing changed
+                                }
+
+                                _seenActions[action.ActionNumber] = signature;
+                                anyNewOrChanged = true;
                                 OnActionReceived?.Invoke(action);
+                            }
+
+                            // pbp.Actions is sorted ascending, so the last element reflects
+                            // the game's current state regardless of which action(s) were new.
+                            if (anyNewOrChanged && pbp.Actions.Count > 0)
+                            {
+                                var latest = pbp.Actions[^1];
+                                GameState.HomeScore = latest.Score1;
+                                GameState.AwayScore = latest.Score2;
+                                GameState.GameClock = latest.Clock;
+                                GameState.Period = latest.Period;
+                                OnGameStateChanged?.Invoke();
                             }
                         }
                     }

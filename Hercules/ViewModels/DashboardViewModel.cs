@@ -16,7 +16,7 @@ public class DashboardViewModel : INotifyPropertyChanged
     
     public ObservableCollection<MappingRowViewModel> MappingRows { get; set; } = new();
     public ObservableCollection<VmixInput> MasterVmixInputs { get; set; } = new();
-    public ObservableCollection<string> FibaStatLibrary { get; set; } = new();
+    public ObservableCollection<FibaStatDefinition> FibaStatDefinitions { get; set; } = new();
 
     private string _fibaIpAddress = "127.0.0.1";
     public string FibaIpAddress
@@ -48,59 +48,43 @@ public class DashboardViewModel : INotifyPropertyChanged
 
     public DashboardViewModel()
     {
-        FibaStatLibrary.Add("Home Team Score");
-        FibaStatLibrary.Add("Away Team Score");
-        FibaStatLibrary.Add("Shot Clock"); // We will map these later when we add clock models
-        FibaStatLibrary.Add("Game Clock");
+        foreach (var stat in FibaStatRegistry.All)
+        {
+            FibaStatDefinitions.Add(stat);
+        }
 
         AddRow();
 
         // 1. Subscribe to Status Updates
         FibaService.OnConnectionStatusChanged += FibaService_OnConnectionStatusChanged;
-        
-        // 2. Subscribe to the Live Data Events (The Brain)
-        FibaService.OnActionReceived += HandleFibaAction;
+
+        // 2. Subscribe to game-state changes (fires once per meaningful update,
+        //    already deduped/coalesced by FibaService)
+        FibaService.OnGameStateChanged += HandleGameStateChanged;
     }
 
     // --- THE ROUTING ENGINE ---
-    private void HandleFibaAction(FibaAction action)
+    // Called once per real game-state change. Each row only fires a vMix
+    // command if the specific stat it's mapped to actually changed value
+    // since the last time this row sent something.
+    private void HandleGameStateChanged()
     {
-        if (action.ActionType == "period" || action.ActionType == "jumpball") return;
-
         foreach (var row in MappingRows)
         {
-            if (row.SelectedInput == null || row.SelectedField == null || string.IsNullOrEmpty(row.SelectedFibaStat)) 
+            if (row.SelectedInput == null || row.SelectedField == null || row.SelectedFibaStat == null)
                 continue;
 
-            string valueToSend = string.Empty;
-            bool shouldSend = false;
+            string currentValue = row.SelectedFibaStat.GetValue(FibaService.GameState);
 
-            switch (row.SelectedFibaStat)
-            {
-                case "Home Team Score":
-                    valueToSend = action.Score1.ToString();
-                    shouldSend = true;
-                    break;
+            if (currentValue == row.LastSentValue)
+                continue; // nothing changed for THIS row's stat - don't send
 
-                case "Away Team Score":
-                    valueToSend = action.Score2.ToString();
-                    shouldSend = true;
-                    break;
-                
-                case "Game Clock":
-                    valueToSend = action.Clock;
-                    shouldSend = true;
-                    break;
-            }
+            row.LastSentValue = currentValue;
 
-            if (shouldSend)
-            {
-                // --- NEW DEBUG LINE ---
-                Console.WriteLine($"[ROUTER] Row mapped to '{row.SelectedFibaStat}' extracting value: {valueToSend}");
-                Console.WriteLine($"[ROUTER] Routing to vMix Graphic: '{row.SelectedInput.Title}', Field: '{row.SelectedField.Name}'");
-            
-                _vmixService.SendSetTextCommand(row.SelectedInput.Key, row.SelectedField.Name, valueToSend);
-            }
+            Console.WriteLine($"[ROUTER] '{row.SelectedFibaStat.DisplayName}' changed to: {currentValue}");
+            Console.WriteLine($"[ROUTER] Routing to vMix Graphic: '{row.SelectedInput.Title}', Field: '{row.SelectedField.Name}'");
+
+            _vmixService.SendSetTextCommand(row.SelectedInput.Key, row.SelectedField.Name, currentValue);
         }
     }
 

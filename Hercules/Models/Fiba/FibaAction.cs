@@ -11,6 +11,12 @@ public class FibaPlayByPlay
 
 public class FibaAction
 {
+    [JsonPropertyName("actionNumber")]
+    public int ActionNumber { get; set; } // Unique id for this action; repeated if the action is later edited
+
+    [JsonPropertyName("subType")]
+    public string SubType { get; set; } = string.Empty;
+
     [JsonPropertyName("actionType")]
     public string ActionType { get; set; } = string.Empty; // e.g., "3pt", "foul"
 
