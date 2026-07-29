@@ -3,74 +3,117 @@
         x:Class="Hercules.Views.MainWindow"
         Title="Hercules"
         Width="1200" Height="800"
+        MinWidth="900" MinHeight="600"
         WindowStartupLocation="CenterScreen"
-        Background="{DynamicResource BgBase}"
+        Background="Transparent"
+        TransparencyLevelHint="Transparent"
         SystemDecorations="None"
+        CanResize="True"
         FontFamily="{StaticResource Poppins}">
 
-    <Grid RowDefinitions="36, *" ColumnDefinitions="260, *">
+    <!--
+        Custom-chrome resize grid: an 8px hit-testable ring around the edges
+        (invisible) lets the user grab and resize a borderless window, since
+        SystemDecorations="None" removes the OS's own resize handles.
+        The visible, rounded window "chrome" lives in the center cell.
+    -->
+    <Grid x:Name="ResizeGrid" RowDefinitions="8,*,8" ColumnDefinitions="8,*,8">
 
-        <!-- TITLE BAR -->
-        <Grid Grid.Row="0" Grid.ColumnSpan="2" Background="{DynamicResource BgBase}"
-              PointerPressed="Topbar_PointerPressed">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="Auto"/>
-            </Grid.ColumnDefinitions>
+        <!-- Corner resize handles -->
+        <Border Grid.Row="0" Grid.Column="0" Background="Transparent" Cursor="TopLeftCorner" Tag="NorthWest" PointerPressed="ResizeHandle_PointerPressed"/>
+        <Border Grid.Row="0" Grid.Column="2" Background="Transparent" Cursor="TopRightCorner" Tag="NorthEast" PointerPressed="ResizeHandle_PointerPressed"/>
+        <Border Grid.Row="2" Grid.Column="0" Background="Transparent" Cursor="BottomLeftCorner" Tag="SouthWest" PointerPressed="ResizeHandle_PointerPressed"/>
+        <Border Grid.Row="2" Grid.Column="2" Background="Transparent" Cursor="BottomRightCorner" Tag="SouthEast" PointerPressed="ResizeHandle_PointerPressed"/>
 
-            <TextBlock Grid.Column="0"
-                       Text="Hercules - Production Environment"
-                       Foreground="{DynamicResource TextSecondary}"
-                       FontWeight="SemiBold"
-                       FontSize="13"
-                       VerticalAlignment="Center"
-                       Margin="16,0"/>
+        <!-- Edge resize handles -->
+        <Border Grid.Row="0" Grid.Column="1" Background="Transparent" Cursor="SizeNorthSouth" Tag="North" PointerPressed="ResizeHandle_PointerPressed"/>
+        <Border Grid.Row="2" Grid.Column="1" Background="Transparent" Cursor="SizeNorthSouth" Tag="South" PointerPressed="ResizeHandle_PointerPressed"/>
+        <Border Grid.Row="1" Grid.Column="0" Background="Transparent" Cursor="SizeWestEast" Tag="West" PointerPressed="ResizeHandle_PointerPressed"/>
+        <Border Grid.Row="1" Grid.Column="2" Background="Transparent" Cursor="SizeWestEast" Tag="East" PointerPressed="ResizeHandle_PointerPressed"/>
 
-            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="0">
-                <Button Content="—" Width="45" Background="Transparent" Foreground="{DynamicResource TextSecondary}"
-                        BorderThickness="0" Click="Minimize_Click"/>
-                <Button Content="✕" Width="45" Background="Transparent" Foreground="{DynamicResource TextSecondary}"
-                        BorderThickness="0" Click="Close_Click"/>
-            </StackPanel>
-        </Grid>
+        <!-- The actual visible window: rounded, everything lives inside this.
+             Split into two borders on purpose - ClipToBounds on the same
+             Border that draws BorderBrush clips part of the stroke away at
+             the rounded corners, making the outline fade out there. The
+             outer border here only ever draws the stroke (unclipped); the
+             inner one clips the actual content/background to the rounded shape. -->
+        <Border x:Name="WindowChrome" Grid.Row="1" Grid.Column="1"
+                Background="Transparent"
+                BorderBrush="{DynamicResource BorderSubtle}"
+                BorderThickness="1"
+                CornerRadius="12">
 
-        <!-- Hairline under the title bar -->
-        <Rectangle Grid.Row="0" Grid.ColumnSpan="2" Height="1" VerticalAlignment="Bottom"
-                   Fill="{DynamicResource BorderSubtle}"/>
+            <Border x:Name="ContentClip"
+                    Background="{DynamicResource BgBase}"
+                    CornerRadius="11"
+                    ClipToBounds="True">
 
-        <!-- SIDEBAR -->
-        <Border Grid.Row="1" Grid.Column="0" Background="{DynamicResource BgPanel}"
-                BorderBrush="{DynamicResource BorderSubtle}" BorderThickness="0,0,1,0">
-            <StackPanel Spacing="8" Margin="12,24">
+                <Grid RowDefinitions="36, *" ColumnDefinitions="260, *">
 
-                <Button x:Name="NavDashboardBtn" Classes="SidebarBtn Active" Click="NavDashboard_Click">
-                    <StackPanel Orientation="Horizontal" Spacing="12">
-                        <PathIcon Data="{StaticResource IconDashboard}" Width="18" Height="18"/>
-                        <TextBlock Text="Dashboard" VerticalAlignment="Center"/>
+                <!-- TITLE BAR -->
+                <Grid Grid.Row="0" Grid.ColumnSpan="2" Background="{DynamicResource BgBase}"
+                      PointerPressed="Topbar_PointerPressed">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
+                    <TextBlock Grid.Column="0"
+                               Text="Hercules - Production Environment"
+                               Foreground="{DynamicResource TextSecondary}"
+                               FontWeight="SemiBold"
+                               FontSize="13"
+                               VerticalAlignment="Center"
+                               Margin="16,0"/>
+
+                    <!-- macOS-style traffic-light window controls -->
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="0" Margin="0,0,16,0">
+                        <Button Classes="WinDot Minimize" Click="Minimize_Click" ToolTip.Tip="Minimize"/>
+                        <Button Classes="WinDot Maximize" Click="Maximize_Click" ToolTip.Tip="Maximize"/>
+                        <Button Classes="WinDot Close" Click="Close_Click" ToolTip.Tip="Close"/>
                     </StackPanel>
-                </Button>
+                </Grid>
 
-                <Button x:Name="NavManualBtn" Classes="SidebarBtn" Click="ManualControl_Click">
-                    <StackPanel Orientation="Horizontal" Spacing="12">
-                        <PathIcon Data="{StaticResource IconDashboard}" Width="18" Height="18"/>
-                        <TextBlock Text="Manual Control" VerticalAlignment="Center"/>
+                <!-- Hairline under the title bar -->
+                <Rectangle Grid.Row="0" Grid.ColumnSpan="2" Height="1" VerticalAlignment="Bottom"
+                           Fill="{DynamicResource BorderSubtle}"/>
+
+                <!-- SIDEBAR -->
+                <Border Grid.Row="1" Grid.Column="0" Background="{DynamicResource BgPanel}"
+                        BorderBrush="{DynamicResource BorderSubtle}" BorderThickness="0,0,1,0">
+                    <StackPanel Spacing="8" Margin="12,24">
+
+                        <Button x:Name="NavDashboardBtn" Classes="SidebarBtn Active" Click="NavDashboard_Click">
+                            <StackPanel Orientation="Horizontal" Spacing="12">
+                                <PathIcon Data="{StaticResource IconDashboard}" Width="18" Height="18"/>
+                                <TextBlock Text="Dashboard" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Button>
+
+                        <Button x:Name="NavManualBtn" Classes="SidebarBtn" Click="ManualControl_Click">
+                            <StackPanel Orientation="Horizontal" Spacing="12">
+                                <PathIcon Data="{StaticResource IconDashboard}" Width="18" Height="18"/>
+                                <TextBlock Text="Manual Control" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Button>
+
+                        <Button x:Name="NavVmixBtn" Classes="SidebarBtn" Click="NavVmix_Click">
+                            <StackPanel Orientation="Horizontal" Spacing="12">
+                                <PathIcon Data="{StaticResource IconSettings}" Width="18" Height="18"/>
+                                <TextBlock Text="vMix Connection" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Button>
+
                     </StackPanel>
-                </Button>
+                </Border>
 
-                <Button x:Name="NavVmixBtn" Classes="SidebarBtn" Click="NavVmix_Click">
-                    <StackPanel Orientation="Horizontal" Spacing="12">
-                        <PathIcon Data="{StaticResource IconSettings}" Width="18" Height="18"/>
-                        <TextBlock Text="vMix Connection" VerticalAlignment="Center"/>
-                    </StackPanel>
-                </Button>
+                <!-- CENTRAL CONTENT AREA -->
+                <Border Grid.Row="1" Grid.Column="1" Background="{DynamicResource BgBase}">
+                    <ContentControl x:Name="ScreenRouter" Margin="40,32"/>
+                </Border>
 
-            </StackPanel>
+            </Grid>
+            </Border>
         </Border>
-
-        <!-- CENTRAL CONTENT AREA -->
-        <Border Grid.Row="1" Grid.Column="1" Background="{DynamicResource BgBase}">
-            <ContentControl x:Name="ScreenRouter" Margin="40,32"/>
-        </Border>
-
     </Grid>
 </Window>

@@ -35,6 +35,7 @@
             <Color x:Key="AccentGreenColor">#10B981</Color>
             <Color x:Key="AccentGreenHoverColor">#059669</Color>
             <Color x:Key="AccentDangerColor">#EF4444</Color>
+            <Color x:Key="AccentYellowColor">#F2C94C</Color>
 
             <!-- Tinted surfaces (used behind the accent-colored pills/labels) -->
             <Color x:Key="AccentOrangeTintColor">#1AD97746</Color>
@@ -56,6 +57,7 @@
             <SolidColorBrush x:Key="AccentGreen" Color="{StaticResource AccentGreenColor}"/>
             <SolidColorBrush x:Key="AccentGreenHover" Color="{StaticResource AccentGreenHoverColor}"/>
             <SolidColorBrush x:Key="AccentDanger" Color="{StaticResource AccentDangerColor}"/>
+            <SolidColorBrush x:Key="AccentYellow" Color="{StaticResource AccentYellowColor}"/>
 
             <SolidColorBrush x:Key="AccentOrangeTint" Color="{StaticResource AccentOrangeTintColor}"/>
             <SolidColorBrush x:Key="AccentGreenTint" Color="{StaticResource AccentGreenTintColor}"/>
@@ -158,6 +160,38 @@
     </Style>
     <Style Selector="Button.BtnClose:pointerover">
         <Setter Property="Foreground" Value="{StaticResource AccentDanger}"/>
+    </Style>
+
+    <!-- =====================================================================
+         WINDOW CONTROLS - macOS-style traffic-light dots
+         Base .WinDot is a plain grey circle; the three modifier classes give
+         each one its own hover color, like the HTML mockup's .control-dot.
+    ===================================================================== -->
+    <Style Selector="Button.WinDot">
+        <Setter Property="Width" Value="12"/>
+        <Setter Property="Height" Value="12"/>
+        <Setter Property="Padding" Value="0"/>
+        <Setter Property="Margin" Value="4,0"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="CornerRadius" Value="6"/>
+        <Setter Property="Background" Value="{StaticResource BgElement}"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+        <Setter Property="Transitions">
+            <Transitions>
+                <BrushTransition Property="Background" Duration="0:0:0.15"/>
+            </Transitions>
+        </Setter>
+    </Style>
+
+    <Style Selector="Button.WinDot.Close:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="{StaticResource AccentDanger}"/>
+    </Style>
+    <Style Selector="Button.WinDot.Minimize:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="{StaticResource AccentYellow}"/>
+    </Style>
+    <Style Selector="Button.WinDot.Maximize:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="{StaticResource AccentGreen}"/>
     </Style>
 
     <!-- =====================================================================
