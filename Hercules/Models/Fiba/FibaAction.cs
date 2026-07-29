@@ -26,6 +26,12 @@ public class FibaAction
     [JsonPropertyName("pno")]
     public int PlayerNumber { get; set; }
 
+    // 1 = the action succeeded (e.g. a made shot), 0 = it did not (e.g. a
+    // missed shot). Almost every trigger we care about (scores) needs this -
+    // without it a missed 3pt attempt would look identical to a made one.
+    [JsonPropertyName("success")]
+    public int Success { get; set; }
+
     [JsonPropertyName("score1")]
     public int Score1 { get; set; }
 

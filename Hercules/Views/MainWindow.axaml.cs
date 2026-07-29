@@ -13,10 +13,13 @@ public partial class MainWindow : Window
     private readonly DashboardView _dashboardView = new DashboardView();
     private readonly MappingView _vmixConnectionView = new MappingView(); // Set this back to MappingView
     private readonly ManualControlView _manualControlView = new ManualControlView();
+    private readonly ScriptTriggerView _scriptTriggerView;
 
     public MainWindow()
     {
         InitializeComponent();
+        
+        _scriptTriggerView = new ScriptTriggerView(_dashboardView.SharedFibaService);
         ScreenRouter.Content = _dashboardView;
 
         // Square off the rounded corners while maximized (a maximized window
@@ -52,6 +55,12 @@ public partial class MainWindow : Window
     {
         ScreenRouter.Content = _manualControlView;
         SetActiveNav(NavManualBtn);
+    }
+    
+    private void NavScripts_Click(object? sender, RoutedEventArgs e)
+    {
+        ScreenRouter.Content = _scriptTriggerView;
+        SetActiveNav(NavScriptsBtn);
     }
 
     // Highlights whichever sidebar button was just clicked and clears the others,

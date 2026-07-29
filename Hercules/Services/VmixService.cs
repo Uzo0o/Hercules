@@ -90,4 +90,25 @@ public class VmixService
             Console.WriteLine($"[VMIX ERROR] Command failed: {ex.Message}");
         }
     }
+
+    // Fires a user-defined vMix Script (Settings > Scripting in vMix) by name.
+    // NOTE: this uses vMix's documented scripting call, Function=Script&Value=<ScriptName>.
+    // Double check this against your vMix version's API docs if scripts don't fire -
+    // it hasn't been exercised against a live vMix instance here.
+    public void SendScriptCommand(string scriptName, string vmixUrl = "http://127.0.0.1:8088/api/")
+    {
+        try
+        {
+            string encodedName = Uri.EscapeDataString(scriptName);
+            string url = $"{vmixUrl}?Function=ScriptStart&Value={encodedName}";
+
+            Console.WriteLine($"[VMIX OUT] {url}");
+
+            _httpClient.GetAsync(url);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[VMIX ERROR] Script command failed: {ex.Message}");
+        }
+    }
 }

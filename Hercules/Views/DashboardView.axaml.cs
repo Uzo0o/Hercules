@@ -14,6 +14,11 @@ public partial class DashboardView : UserControl
         DataContext = new DashboardViewModel();
     }
 
+    // The single live FIBA connection lives on this ViewModel. Other views
+    // (e.g. ScriptTriggerView) reuse this instance instead of opening a
+    // second TCP connection to the LiveStats feed.
+    public Hercules.Services.FibaService SharedFibaService => ((DashboardViewModel)DataContext!).FibaService;
+
     private void AddRow_Click(object? sender, RoutedEventArgs e)
     {
         // Grab the ViewModel and add a new blank row
