@@ -57,7 +57,7 @@ public class ScriptTriggerViewModel : INotifyPropertyChanged
         });
     }
 
-    public void AddRow() => TriggerRows.Add(new ScriptTriggerRowViewModel());
+    public void AddRow() => TriggerRows.Add(new ScriptTriggerRowViewModel(AvailableTriggers));
 
     public void RemoveRow(ScriptTriggerRowViewModel row)
     {

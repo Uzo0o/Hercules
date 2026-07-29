@@ -37,7 +37,7 @@
                                          Text="{Binding ScriptName}"/>
 
                                 <ComboBox Grid.Column="1" Classes="FlatDropdown" Margin="0,0,12,0" HorizontalAlignment="Stretch"
-                                          ItemsSource="{Binding $parent[UserControl].((vm:ScriptTriggerViewModel)DataContext).AvailableTriggers}"
+                                          ItemsSource="{Binding AvailableTriggers}"
                                           SelectedItem="{Binding SelectedTrigger}"
                                           PlaceholderText="Trigger when...">
                                     <ComboBox.ItemTemplate>
