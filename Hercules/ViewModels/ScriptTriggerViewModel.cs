@@ -51,7 +51,8 @@ public class ScriptTriggerViewModel : INotifyPropertyChanged
                 if (!row.SelectedTrigger.Matches(action))
                     continue;
 
-                Console.WriteLine($"[SCRIPT TRIGGER] '{row.SelectedTrigger.DisplayName}' matched -> firing script '{row.ScriptName}'");
+                Console.WriteLine($"[SCRIPT TRIGGER] '{row.SelectedTrigger.DisplayName}' matched action #{action.ActionNumber} " +
+                                   $"(team {action.TeamNumber}, {action.ActionType}, success={action.Success}) -> firing script '{row.ScriptName}'");
                 _vmixService.SendScriptCommand(row.ScriptName);
             }
         });

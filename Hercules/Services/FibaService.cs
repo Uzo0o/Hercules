@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
@@ -23,6 +24,15 @@ public class FibaService
     // actions that are genuinely new or have been edited.
     private readonly Dictionary<int, string> _seenActions = new();
 
+    // The very first "playbyplay" message after connecting contains the entire
+    // history of the match so far (potentially dozens of actions from earlier
+    // periods). That's backfill, not something that just happened - if we fired
+    // OnActionReceived for it, every script trigger configured for either team
+    // would fire back-to-back the instant you hit "Connect". This flag lets us
+    // absorb that first message into _seenActions/GameState silently, and only
+    // start raising OnActionReceived once we're past it.
+    private bool _playByPlayBaselineEstablished = false;
+
     public FibaGameState GameState { get; } = new();
 
     public event Action<FibaMatchInformation>? OnMatchInfoReceived;
@@ -40,6 +50,7 @@ public class FibaService
             OnConnectionStatusChanged?.Invoke("Connecting to FIBA...");
             
             _seenActions.Clear();
+            _playByPlayBaselineEstablished = false;
 
             _tcpClient = new TcpClient();
             await _tcpClient.ConnectAsync(ip, port);
@@ -160,6 +171,12 @@ public class FibaService
                             // (an edit/correction reusing the same actionNumber).
                             bool anyNewOrChanged = false;
 
+                            // If this is the first playbyplay message since connecting, its
+                            // "new" actions are really the match's history up to this point,
+                            // not something that just happened - absorb them into the seen
+                            // set (and into GameState below) without notifying subscribers.
+                            bool isBackfill = !_playByPlayBaselineEstablished;
+
                             foreach (var action in pbp.Actions)
                             {
                                 // Signature of the fields that actually matter for output.
@@ -175,14 +192,21 @@ public class FibaService
 
                                 _seenActions[action.ActionNumber] = signature;
                                 anyNewOrChanged = true;
-                                OnActionReceived?.Invoke(action);
+
+                                if (!isBackfill)
+                                {
+                                    OnActionReceived?.Invoke(action);
+                                }
                             }
 
-                            // pbp.Actions is sorted ascending, so the last element reflects
-                            // the game's current state regardless of which action(s) were new.
+                            _playByPlayBaselineEstablished = true;
+
+                            // The array isn't guaranteed to be sorted by actionNumber (FIBA
+                            // appears to order it by clock instead), so pick the actual
+                            // highest-numbered action as "current", not just the last element.
                             if (anyNewOrChanged && pbp.Actions.Count > 0)
                             {
-                                var latest = pbp.Actions[^1];
+                                var latest = pbp.Actions.OrderByDescending(a => a.ActionNumber).First();
                                 GameState.HomeScore = latest.Score1;
                                 GameState.AwayScore = latest.Score2;
                                 GameState.GameClock = latest.Clock;
