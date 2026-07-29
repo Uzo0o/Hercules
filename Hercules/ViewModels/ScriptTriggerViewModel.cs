@@ -30,28 +30,15 @@ public class ScriptTriggerViewModel : INotifyPropertyChanged
 
         AddRow();
 
-        _fibaService.OnActionReceived += HandleActionReceived;
-
-        // A fresh connection means a fresh (or replayed) match - don't let
-        // actionNumbers remembered from a previous connection permanently
-        // block a genuinely new play that happens to reuse the same number.
-        _fibaService.OnConnectionStatusChanged += status =>
-        {
-            if (status.Contains("Connecting"))
-            {
-                Dispatcher.UIThread.Post(() =>
-                {
-                    foreach (var row in TriggerRows) row.ResetFiredActions();
-                });
-            }
-        };
+        _fibaService.OnStatIncreased += HandleStatIncreased;
     }
 
     // --- THE ROUTING ENGINE ---
-    // Called once per genuinely new/changed FIBA action (FibaService already
-    // dedupes replayed actions for us). Fires a script for every row whose
-    // configured trigger matches this action.
-    private void HandleActionReceived(FibaAction action)
+    // Called once per genuine boxscore stat increase (FibaService already
+    // dedupes/baselines this - a stat only "increases" once, atomically, when
+    // the play is officially recorded, not once per step of data entry).
+    // Fires a script for every row whose configured trigger matches it.
+    private void HandleStatIncreased(FibaStatIncrease increase)
     {
         // FibaService raises this from its background listener thread; hop
         // to the UI thread before touching the (UI-bound) TriggerRows collection.
@@ -62,19 +49,12 @@ public class ScriptTriggerViewModel : INotifyPropertyChanged
                 if (row.SelectedTrigger == null || string.IsNullOrWhiteSpace(row.ScriptName))
                     continue;
 
-                if (!row.SelectedTrigger.Matches(action))
+                if (!row.SelectedTrigger.Matches(increase))
                     continue;
 
-                // FIBA re-sends this SAME actionNumber, edited, at every step
-                // of data entry (player, shot type, assist...). Only the
-                // first time it satisfies this row's trigger counts as "the"
-                // event - later edits to the same actionNumber are refinements
-                // of a play we already fired for, not a new basket.
-                if (!row.TryMarkFired(action.ActionNumber))
-                    continue;
-
-                Console.WriteLine($"[SCRIPT TRIGGER] '{row.SelectedTrigger.DisplayName}' matched action #{action.ActionNumber} " +
-                                   $"(team {action.TeamNumber}, {action.ActionType}, success={action.Success}) -> firing script '{row.ScriptName}'");
+                Console.WriteLine($"[SCRIPT TRIGGER] '{row.SelectedTrigger.DisplayName}' matched " +
+                                   $"(team {increase.TeamNumber}, {increase.Stat} {increase.OldValue}->{increase.NewValue}) " +
+                                   $"-> firing script '{row.ScriptName}'");
                 _vmixService.SendScriptCommand(row.ScriptName);
             }
         });

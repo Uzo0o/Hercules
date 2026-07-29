@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
@@ -21,29 +20,32 @@ public class FibaService
     // FIBA resends the FULL action history on every "playbyplay" message, not just
     // the newest one. This tracks what we've already broadcast (keyed by actionNumber,
     // valued by a signature of its content) so we only fire OnActionReceived for
-    // actions that are genuinely new or have been edited.
+    // actions that are genuinely new or have been edited. NOTE: GameState (score/
+    // clock/period) is no longer derived from this - see the "status" case below -
+    // this is now only used for the raw OnActionReceived play-by-play feed.
     private readonly Dictionary<int, string> _seenActions = new();
 
     // The very first "playbyplay" message after connecting contains the entire
-    // history of the match so far (potentially dozens of actions from earlier
-    // periods). That's backfill, not something that just happened - if we fired
-    // OnActionReceived for it, every script trigger configured for either team
-    // would fire back-to-back the instant you hit "Connect". This flag lets us
-    // absorb that first message into _seenActions/GameState silently, and only
-    // start raising OnActionReceived once we're past it.
+    // history of the match so far. That's backfill, not something that just
+    // happened - absorb it into _seenActions silently, and only start raising
+    // OnActionReceived once we're past it.
     private bool _playByPlayBaselineEstablished = false;
 
-    // The highest actionNumber we've ever driven GameState from, on this
-    // connection. Only ever moves forward - see the playbyplay handling
-    // below for why this has to be persistent rather than recomputed fresh
-    // from each individual message.
-    private int _latestActionNumberForState = -1;
+    // --- Boxscore stat-increase tracking ---
+    // Last known cumulative stats per (teamNumber, playerNumber) - playerNumber
+    // is null for a team's own total. Comparing each new boxscore snapshot
+    // against this is how we detect "team 1 just made a 2pt", "player 5 on
+    // team 2 just fouled", etc. - see FibaTrackedStatRegistry for which stats
+    // are tracked.
+    private readonly Dictionary<(int team, int? pno), FibaBoxScoreStats> _lastStats = new();
+    private bool _boxScoreBaselineEstablished = false;
 
     public FibaGameState GameState { get; } = new();
 
     public event Action<FibaMatchInformation>? OnMatchInfoReceived;
     public event Action<FibaTeam>? OnTeamSetupReceived;
     public event Action<FibaAction>? OnActionReceived;
+    public event Action<FibaStatIncrease>? OnStatIncreased;
     public event Action? OnGameStateChanged;
     public event Action<string>? OnConnectionStatusChanged;
 
@@ -57,7 +59,8 @@ public class FibaService
             
             _seenActions.Clear();
             _playByPlayBaselineEstablished = false;
-            _latestActionNumberForState = -1;
+            _lastStats.Clear();
+            _boxScoreBaselineEstablished = false;
 
             _tcpClient = new TcpClient();
             await _tcpClient.ConnectAsync(ip, port);
@@ -89,11 +92,12 @@ public class FibaService
     {
         if (_writer == null) return;
 
-        // Using the exact format from the FIBA documentation
+        // "st" (status) added - it's the authoritative current score/clock/period
+        // snapshot, so GameState no longer has to be reconstructed from playbyplay.
         var parameters = new
         {
             type = "parameters",
-            types = "se,ac,mi,te,box,pbp",
+            types = "se,ac,mi,te,st,box,pbp",
         };
 
         string json = JsonSerializer.Serialize(parameters);
@@ -154,7 +158,55 @@ public class FibaService
             switch (rootMessage.Type)
             {
                 case "ping":
-                case "boxscore": // We silently ignore the massive boxscore dumps for now so they don't spam the terminal
+                    break;
+
+                case "status":
+                    // The authoritative "what should the scoreboard show right now"
+                    // snapshot. No reconstruction, no guessing - just read it.
+                    var status = JsonSerializer.Deserialize<FibaStatus>(json);
+                    if (status != null)
+                    {
+                        foreach (var score in status.Scores)
+                        {
+                            if (score.TeamNumber == 1) GameState.HomeScore = score.Score;
+                            else if (score.TeamNumber == 2) GameState.AwayScore = score.Score;
+                        }
+
+                        GameState.GameClock = status.Clock;
+                        GameState.Period = status.Period.Current;
+                        OnGameStateChanged?.Invoke();
+                    }
+                    break;
+
+                case "boxscore":
+                    try
+                    {
+                        var box = JsonSerializer.Deserialize<FibaBoxScoreMessage>(json);
+                        if (box != null)
+                        {
+                            // The first boxscore snapshot after connecting establishes
+                            // our baseline (whatever's already been scored before we
+                            // connected) - don't fire increase events for it, only for
+                            // genuine increases seen after we're watching.
+                            bool isBaseline = !_boxScoreBaselineEstablished;
+
+                            foreach (var team in box.Teams)
+                            {
+                                DiffAndTrackStats(team.TeamNumber, playerNumber: null, team.Total.Team, isBaseline);
+
+                                foreach (var player in team.Total.Players)
+                                {
+                                    DiffAndTrackStats(team.TeamNumber, player.PlayerNumber, player, isBaseline);
+                                }
+                            }
+
+                            _boxScoreBaselineEstablished = true;
+                        }
+                    }
+                    catch (JsonException jex)
+                    {
+                        Console.WriteLine($"[FIBA BOXSCORE PARSE ERROR]: {jex.Message}");
+                    }
                     break;
         
                 case "matchInfo":
@@ -163,8 +215,8 @@ public class FibaService
                     break;
         
                 case "setup":
-                    var team = JsonSerializer.Deserialize<FibaTeam>(json);
-                    if (team != null) OnTeamSetupReceived?.Invoke(team);
+                    var team2 = JsonSerializer.Deserialize<FibaTeam>(json);
+                    if (team2 != null) OnTeamSetupReceived?.Invoke(team2);
                     break;
 
                 case "playbyplay":
@@ -173,15 +225,10 @@ public class FibaService
                         var pbp = JsonSerializer.Deserialize<FibaPlayByPlay>(json);
                         if (pbp != null && pbp.Actions != null)
                         {
-                            // The feed re-sends the entire action list every time, so only
-                            // broadcast actions we haven't seen, or whose content changed
-                            // (an edit/correction reusing the same actionNumber).
-                            bool anyNewOrChanged = false;
-
-                            // If this is the first playbyplay message since connecting, its
-                            // "new" actions are really the match's history up to this point,
-                            // not something that just happened - absorb them into the seen
-                            // set (and into GameState below) without notifying subscribers.
+                            // If this is the first playbyplay message since connecting,
+                            // its "new" actions are really match history, not something
+                            // that just happened - absorb them into the seen set without
+                            // notifying subscribers.
                             bool isBackfill = !_playByPlayBaselineEstablished;
 
                             foreach (var action in pbp.Actions)
@@ -198,22 +245,6 @@ public class FibaService
                                 }
 
                                 _seenActions[action.ActionNumber] = signature;
-                                anyNewOrChanged = true;
-
-                                // "Current state" is driven by the highest actionNumber we've
-                                // EVER witnessed on this connection, not the highest one inside
-                                // any single message - the resent array isn't reliably sorted,
-                                // and the set of "new" actions can jump around unpredictably
-                                // between messages too, so a running high-water mark is the
-                                // only thing that's actually safe to trust as "current".
-                                if (action.ActionNumber >= _latestActionNumberForState)
-                                {
-                                    _latestActionNumberForState = action.ActionNumber;
-                                    GameState.HomeScore = action.Score1;
-                                    GameState.AwayScore = action.Score2;
-                                    GameState.GameClock = action.Clock;
-                                    GameState.Period = action.Period;
-                                }
 
                                 if (!isBackfill)
                                 {
@@ -222,11 +253,6 @@ public class FibaService
                             }
 
                             _playByPlayBaselineEstablished = true;
-
-                            if (anyNewOrChanged)
-                            {
-                                OnGameStateChanged?.Invoke();
-                            }
                         }
                     }
                     catch (JsonException jex)
@@ -245,6 +271,35 @@ public class FibaService
             Console.WriteLine($"[FIBA JSON ERROR] Failed to map JSON to C# objects:");
             Console.WriteLine(jex.ToString());
         }
+    }
+
+    // Compares a fresh stat snapshot (team total, or one player's total)
+    // against the last one we saw for that same (team, player) key, and
+    // raises OnStatIncreased for every tracked stat that went up.
+    private void DiffAndTrackStats(int teamNumber, int? playerNumber, FibaBoxScoreStats current, bool isBaseline)
+    {
+        var key = (teamNumber, playerNumber);
+        _lastStats.TryGetValue(key, out var previous);
+
+        foreach (var statDef in FibaTrackedStatRegistry.All)
+        {
+            int newValue = statDef.GetValue(current);
+            int oldValue = previous != null ? statDef.GetValue(previous) : 0;
+
+            if (!isBaseline && newValue > oldValue)
+            {
+                OnStatIncreased?.Invoke(new FibaStatIncrease
+                {
+                    TeamNumber = teamNumber,
+                    PlayerNumber = playerNumber,
+                    Stat = statDef.Key,
+                    OldValue = oldValue,
+                    NewValue = newValue
+                });
+            }
+        }
+
+        _lastStats[key] = current;
     }
 
     public void Disconnect()

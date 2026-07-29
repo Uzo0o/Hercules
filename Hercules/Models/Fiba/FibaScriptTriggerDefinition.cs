@@ -15,18 +15,17 @@ public enum FibaScriptTriggerKey
 
 /// <summary>
 /// Describes one "event" a user can trigger a vMix script from: a stable key,
-/// a human-readable name for the dropdown, and a predicate that decides
-/// whether an incoming FibaAction represents that event. Add new events here
-/// (fouls, timeouts, challenges, etc.) and they show up in the dropdown
-/// automatically - nothing else to touch.
+/// a human-readable name for the dropdown, and a predicate over a
+/// FibaStatIncrease (a boxscore stat that just went up). Add new events here
+/// (fouls, timeouts, etc.) and they show up in the dropdown automatically.
 /// </summary>
 public class FibaScriptTriggerDefinition
 {
     public FibaScriptTriggerKey Key { get; }
     public string DisplayName { get; }
-    public Func<FibaAction, bool> Matches { get; }
+    public Func<FibaStatIncrease, bool> Matches { get; }
 
-    public FibaScriptTriggerDefinition(FibaScriptTriggerKey key, string displayName, Func<FibaAction, bool> matches)
+    public FibaScriptTriggerDefinition(FibaScriptTriggerKey key, string displayName, Func<FibaStatIncrease, bool> matches)
     {
         Key = key;
         DisplayName = displayName;
@@ -38,31 +37,32 @@ public class FibaScriptTriggerDefinition
 
 public static class FibaScriptTriggerRegistry
 {
-    // Team 1 = Home, Team 2 = Away (matches FibaGameState.HomeScore/AwayScore
-    // convention used elsewhere in the app). Success == 1 means the shot was
-    // made - without checking Success a missed 3pt attempt would also match.
+    // Team 1 = Home, Team 2 = Away, matching FibaGameState's convention.
     private const int HomeTeam = 1;
     private const int AwayTeam = 2;
-    private const int Made = 1;
 
     public static readonly List<FibaScriptTriggerDefinition> All = new()
     {
+        // PlayerNumber == null restricts this to the TEAM-level increase.
+        // Boxscore diffing raises one increase for the team total AND one for
+        // the scoring player's own total for the same real basket - without
+        // this check, both would match and fire the script twice.
         new FibaScriptTriggerDefinition(FibaScriptTriggerKey.HomeScore1, "Home Scores 1 (Free Throw)",
-            a => a.TeamNumber == HomeTeam && a.ActionType == "freethrow" && a.Success == Made),
+            e => e.TeamNumber == HomeTeam && e.PlayerNumber == null && e.Stat == FibaTrackedStat.FreeThrowsMade),
 
         new FibaScriptTriggerDefinition(FibaScriptTriggerKey.HomeScore2, "Home Scores 2",
-            a => a.TeamNumber == HomeTeam && a.ActionType == "2pt" && a.Success == Made),
+            e => e.TeamNumber == HomeTeam && e.PlayerNumber == null && e.Stat == FibaTrackedStat.TwoPointersMade),
 
         new FibaScriptTriggerDefinition(FibaScriptTriggerKey.HomeScore3, "Home Scores 3",
-            a => a.TeamNumber == HomeTeam && a.ActionType == "3pt" && a.Success == Made),
+            e => e.TeamNumber == HomeTeam && e.PlayerNumber == null && e.Stat == FibaTrackedStat.ThreePointersMade),
 
         new FibaScriptTriggerDefinition(FibaScriptTriggerKey.AwayScore1, "Away Scores 1 (Free Throw)",
-            a => a.TeamNumber == AwayTeam && a.ActionType == "freethrow" && a.Success == Made),
+            e => e.TeamNumber == AwayTeam && e.PlayerNumber == null && e.Stat == FibaTrackedStat.FreeThrowsMade),
 
         new FibaScriptTriggerDefinition(FibaScriptTriggerKey.AwayScore2, "Away Scores 2",
-            a => a.TeamNumber == AwayTeam && a.ActionType == "2pt" && a.Success == Made),
+            e => e.TeamNumber == AwayTeam && e.PlayerNumber == null && e.Stat == FibaTrackedStat.TwoPointersMade),
 
         new FibaScriptTriggerDefinition(FibaScriptTriggerKey.AwayScore3, "Away Scores 3",
-            a => a.TeamNumber == AwayTeam && a.ActionType == "3pt" && a.Success == Made),
+            e => e.TeamNumber == AwayTeam && e.PlayerNumber == null && e.Stat == FibaTrackedStat.ThreePointersMade),
     };
 }
