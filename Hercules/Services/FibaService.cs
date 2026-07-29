@@ -33,6 +33,12 @@ public class FibaService
     // start raising OnActionReceived once we're past it.
     private bool _playByPlayBaselineEstablished = false;
 
+    // The highest actionNumber we've ever driven GameState from, on this
+    // connection. Only ever moves forward - see the playbyplay handling
+    // below for why this has to be persistent rather than recomputed fresh
+    // from each individual message.
+    private int _latestActionNumberForState = -1;
+
     public FibaGameState GameState { get; } = new();
 
     public event Action<FibaMatchInformation>? OnMatchInfoReceived;
@@ -51,6 +57,7 @@ public class FibaService
             
             _seenActions.Clear();
             _playByPlayBaselineEstablished = false;
+            _latestActionNumberForState = -1;
 
             _tcpClient = new TcpClient();
             await _tcpClient.ConnectAsync(ip, port);
@@ -193,6 +200,21 @@ public class FibaService
                                 _seenActions[action.ActionNumber] = signature;
                                 anyNewOrChanged = true;
 
+                                // "Current state" is driven by the highest actionNumber we've
+                                // EVER witnessed on this connection, not the highest one inside
+                                // any single message - the resent array isn't reliably sorted,
+                                // and the set of "new" actions can jump around unpredictably
+                                // between messages too, so a running high-water mark is the
+                                // only thing that's actually safe to trust as "current".
+                                if (action.ActionNumber >= _latestActionNumberForState)
+                                {
+                                    _latestActionNumberForState = action.ActionNumber;
+                                    GameState.HomeScore = action.Score1;
+                                    GameState.AwayScore = action.Score2;
+                                    GameState.GameClock = action.Clock;
+                                    GameState.Period = action.Period;
+                                }
+
                                 if (!isBackfill)
                                 {
                                     OnActionReceived?.Invoke(action);
@@ -201,16 +223,8 @@ public class FibaService
 
                             _playByPlayBaselineEstablished = true;
 
-                            // The array isn't guaranteed to be sorted by actionNumber (FIBA
-                            // appears to order it by clock instead), so pick the actual
-                            // highest-numbered action as "current", not just the last element.
-                            if (anyNewOrChanged && pbp.Actions.Count > 0)
+                            if (anyNewOrChanged)
                             {
-                                var latest = pbp.Actions.OrderByDescending(a => a.ActionNumber).First();
-                                GameState.HomeScore = latest.Score1;
-                                GameState.AwayScore = latest.Score2;
-                                GameState.GameClock = latest.Clock;
-                                GameState.Period = latest.Period;
                                 OnGameStateChanged?.Invoke();
                             }
                         }

@@ -8,6 +8,25 @@ namespace Hercules.ViewModels;
 
 public class MappingRowViewModel : INotifyPropertyChanged
 {
+    // Live references to DashboardViewModel's shared lists, handed to this row
+    // at construction time. Kept local to the row (instead of the XAML
+    // $parent[UserControl] tree-walk that was here before) because that
+    // binding briefly loses its path whenever this control is detached and
+    // reattached to the visual tree (e.g. switching sidebar tabs) - and since
+    // ComboBox.SelectedItem is two-way by default, a momentarily-empty
+    // ItemsSource clears the selection and pushes null straight back into
+    // SelectedFibaStat/SelectedInput below, silently wiping the user's choice.
+    // These are the SAME collection instances DashboardViewModel owns (not
+    // copies), so "Refresh vMix Sources" still updates every row live.
+    public ObservableCollection<FibaStatDefinition> AvailableFibaStats { get; }
+    public ObservableCollection<VmixInput> AvailableVmixInputs { get; }
+
+    public MappingRowViewModel(ObservableCollection<FibaStatDefinition> availableFibaStats, ObservableCollection<VmixInput> availableVmixInputs)
+    {
+        AvailableFibaStats = availableFibaStats;
+        AvailableVmixInputs = availableVmixInputs;
+    }
+
     // 1. FIBA Stat Selection - a real definition from FibaStatRegistry, not a magic string
     public FibaStatDefinition? SelectedFibaStat { get; set; }
 

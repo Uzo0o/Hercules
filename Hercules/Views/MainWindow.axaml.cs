@@ -70,6 +70,7 @@ public partial class MainWindow : Window
         NavDashboardBtn.Classes.Set("Active", active == NavDashboardBtn);
         NavManualBtn.Classes.Set("Active", active == NavManualBtn);
         NavVmixBtn.Classes.Set("Active", active == NavVmixBtn);
+        NavScriptsBtn.Classes.Set("Active", active == NavScriptsBtn);
     }
 
     // --- Custom resize (SystemDecorations="None" removes the OS's own grips) ---

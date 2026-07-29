@@ -23,6 +23,24 @@ public class ScriptTriggerRowViewModel : INotifyPropertyChanged
         AvailableTriggers = new ObservableCollection<FibaScriptTriggerDefinition>(availableTriggers);
     }
 
+    // FIBA re-broadcasts the SAME actionNumber repeatedly while a play is
+    // being entered (player picked, shot type picked, assist toggled, etc) -
+    // each of those is a distinct edit with a changed signature, so
+    // FibaService correctly reports each one as "new". Without this, a
+    // single basket would fire the script once per step of data entry.
+    // This tracks which actionNumbers THIS row has already fired for, so
+    // later edits to an already-handled action are ignored.
+    private readonly HashSet<int> _firedActionNumbers = new();
+
+    // Returns true (and remembers it) the first time this actionNumber is
+    // seen for this row; false on every subsequent call for the same one.
+    public bool TryMarkFired(int actionNumber) => _firedActionNumbers.Add(actionNumber);
+
+    // Called on reconnect so a fresh match (or the same match replayed from
+    // the start) isn't permanently blocked by actionNumbers left over from
+    // the previous connection.
+    public void ResetFiredActions() => _firedActionNumbers.Clear();
+
     // 1. The vMix script name to fire, e.g. "1_Home_Score.TXT"
     private string _scriptName = string.Empty;
     public string ScriptName

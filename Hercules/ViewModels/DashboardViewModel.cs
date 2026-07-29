@@ -123,7 +123,7 @@ public class DashboardViewModel : INotifyPropertyChanged
         foreach (var input in inputs) MasterVmixInputs.Add(input);
     }
 
-    public void AddRow() => MappingRows.Add(new MappingRowViewModel());
+    public void AddRow() => MappingRows.Add(new MappingRowViewModel(FibaStatDefinitions, MasterVmixInputs));
 
     public void RemoveRow(MappingRowViewModel row)
     {

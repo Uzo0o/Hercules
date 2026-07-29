@@ -31,6 +31,20 @@ public class ScriptTriggerViewModel : INotifyPropertyChanged
         AddRow();
 
         _fibaService.OnActionReceived += HandleActionReceived;
+
+        // A fresh connection means a fresh (or replayed) match - don't let
+        // actionNumbers remembered from a previous connection permanently
+        // block a genuinely new play that happens to reuse the same number.
+        _fibaService.OnConnectionStatusChanged += status =>
+        {
+            if (status.Contains("Connecting"))
+            {
+                Dispatcher.UIThread.Post(() =>
+                {
+                    foreach (var row in TriggerRows) row.ResetFiredActions();
+                });
+            }
+        };
     }
 
     // --- THE ROUTING ENGINE ---
@@ -49,6 +63,14 @@ public class ScriptTriggerViewModel : INotifyPropertyChanged
                     continue;
 
                 if (!row.SelectedTrigger.Matches(action))
+                    continue;
+
+                // FIBA re-sends this SAME actionNumber, edited, at every step
+                // of data entry (player, shot type, assist...). Only the
+                // first time it satisfies this row's trigger counts as "the"
+                // event - later edits to the same actionNumber are refinements
+                // of a play we already fired for, not a new basket.
+                if (!row.TryMarkFired(action.ActionNumber))
                     continue;
 
                 Console.WriteLine($"[SCRIPT TRIGGER] '{row.SelectedTrigger.DisplayName}' matched action #{action.ActionNumber} " +
