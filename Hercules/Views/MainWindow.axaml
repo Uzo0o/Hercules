@@ -165,6 +165,15 @@
             </StackPanel>
         </Button>
 
+        <Button x:Name="NavOverlayAutomationsBtn" Classes="SidebarBtn" Click="NavOverlayAutomations_Click">
+            <StackPanel Orientation="Horizontal" Spacing="12">
+                <Grid Width="20" Height="20">
+                    <PathIcon Data="{StaticResource IconAutomation}" Width="18" Height="18" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                </Grid>
+                <TextBlock Text="Overlay Automations"/>
+            </StackPanel>
+        </Button>
+
     </StackPanel>
 
 </Border>

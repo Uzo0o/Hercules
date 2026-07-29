@@ -71,6 +71,36 @@ public class VmixService
         return activeGraphics;
     }
     
+    // Same idea as FetchActiveGraphicsAsync, but unfiltered - overlays can
+    // host any input type (Title, Video, Image, Camera...), not just the
+    // Title/GT graphics with editable text/image fields that the Dashboard's
+    // dropdowns care about.
+    public async Task<List<VmixInput>> FetchAllInputsAsync(string vmixUrl = "http://127.0.0.1:8088/api/")
+    {
+        var allInputs = new List<VmixInput>();
+
+        try
+        {
+            string xmlResponse = await _httpClient.GetStringAsync(vmixUrl);
+            XDocument doc = XDocument.Parse(xmlResponse);
+
+            foreach (var inputElement in doc.Descendants("input"))
+            {
+                allInputs.Add(new VmixInput
+                {
+                    Key = inputElement.Attribute("key")?.Value ?? "",
+                    Title = inputElement.Attribute("title")?.Value ?? "Unknown Input"
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Failed to connect to vMix: {ex.Message}");
+        }
+
+        return allInputs;
+    }
+
     public void SendSetTextCommand(string inputKey, string fieldName, string value, string vmixUrl = "http://127.0.0.1:8088/api/")
     {
         try
@@ -88,6 +118,44 @@ public class VmixService
         catch (Exception ex)
         {
             Console.WriteLine($"[VMIX ERROR] Command failed: {ex.Message}");
+        }
+    }
+
+    // Brings the given input onto overlay channel 1-4, using vMix's
+    // configured transition for that overlay - matches clicking the
+    // corresponding "Overlay N" button in vMix, but with a chosen Input.
+    public void SendOverlayInCommand(int channel, string inputKey, string vmixUrl = "http://127.0.0.1:8088/api/")
+    {
+        try
+        {
+            string encodedInput = Uri.EscapeDataString(inputKey);
+            string url = $"{vmixUrl}?Function=OverlayInput{channel}In&Input={encodedInput}";
+
+            Console.WriteLine($"[VMIX OUT] {url}");
+
+            _httpClient.GetAsync(url);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[VMIX ERROR] Overlay In command failed: {ex.Message}");
+        }
+    }
+
+    // Transitions overlay channel 1-4 back off. No Input needed - it just
+    // clears whatever's currently showing on that channel.
+    public void SendOverlayOutCommand(int channel, string vmixUrl = "http://127.0.0.1:8088/api/")
+    {
+        try
+        {
+            string url = $"{vmixUrl}?Function=OverlayInput{channel}Out";
+
+            Console.WriteLine($"[VMIX OUT] {url}");
+
+            _httpClient.GetAsync(url);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[VMIX ERROR] Overlay Out command failed: {ex.Message}");
         }
     }
 

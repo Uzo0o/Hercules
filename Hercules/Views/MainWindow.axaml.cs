@@ -14,12 +14,14 @@ public partial class MainWindow : Window
     private readonly MappingView _vmixConnectionView = new MappingView(); // Set this back to MappingView
     private readonly ManualControlView _manualControlView = new ManualControlView();
     private readonly ScriptTriggerView _scriptTriggerView;
+    private readonly OverlayAutomationView _overlayAutomationView;
 
     public MainWindow()
     {
         InitializeComponent();
         
         _scriptTriggerView = new ScriptTriggerView(_dashboardView.SharedFibaService);
+        _overlayAutomationView = new OverlayAutomationView(_dashboardView.SharedFibaService);
         ScreenRouter.Content = _dashboardView;
 
         // Square off the rounded corners while maximized (a maximized window
@@ -63,6 +65,12 @@ public partial class MainWindow : Window
         SetActiveNav(NavScriptsBtn);
     }
 
+    private void NavOverlayAutomations_Click(object? sender, RoutedEventArgs e)
+    {
+        ScreenRouter.Content = _overlayAutomationView;
+        SetActiveNav(NavOverlayAutomationsBtn);
+    }
+
     // Highlights whichever sidebar button was just clicked and clears the others,
     // mirroring the .nav-btn.active state from the HTML mockup.
     private void SetActiveNav(Button active)
@@ -71,6 +79,7 @@ public partial class MainWindow : Window
         NavManualBtn.Classes.Set("Active", active == NavManualBtn);
         NavVmixBtn.Classes.Set("Active", active == NavVmixBtn);
         NavScriptsBtn.Classes.Set("Active", active == NavScriptsBtn);
+        NavOverlayAutomationsBtn.Classes.Set("Active", active == NavOverlayAutomationsBtn);
     }
 
     // --- Custom resize (SystemDecorations="None" removes the OS's own grips) ---
