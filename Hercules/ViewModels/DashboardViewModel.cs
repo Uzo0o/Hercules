@@ -74,7 +74,7 @@ public class DashboardViewModel : INotifyPropertyChanged
             if (row.SelectedInput == null || row.SelectedField == null || row.SelectedFibaStat == null)
                 continue;
 
-            string currentValue = row.SelectedFibaStat.GetValue(FibaService.GameState);
+            string currentValue = row.Prefix + row.SelectedFibaStat.GetValue(FibaService.GameState) + row.Suffix;
 
             if (currentValue == row.LastSentValue)
                 continue; // nothing changed for THIS row's stat - don't send

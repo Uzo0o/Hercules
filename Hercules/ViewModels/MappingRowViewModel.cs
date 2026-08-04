@@ -30,6 +30,37 @@ public class MappingRowViewModel : INotifyPropertyChanged
     // 1. FIBA Stat Selection - a real definition from FibaStatRegistry, not a magic string
     public FibaStatDefinition? SelectedFibaStat { get; set; }
 
+    // Optional text glued directly before/after the pulled FIBA value, e.g.
+    // Prefix="" Suffix="%" for accuracy, or Suffix="/4" for period. Applied
+    // in DashboardViewModel right before the value is sent to vMix.
+    private string _prefix = string.Empty;
+    public string Prefix
+    {
+        get => _prefix;
+        set
+        {
+            if (_prefix != value)
+            {
+                _prefix = value;
+                OnPropertyChanged();
+            }
+        }
+    }
+
+    private string _suffix = string.Empty;
+    public string Suffix
+    {
+        get => _suffix;
+        set
+        {
+            if (_suffix != value)
+            {
+                _suffix = value;
+                OnPropertyChanged();
+            }
+        }
+    }
+
     // The last value actually sent to vMix for this row. Used so we only
     // fire a SetText command when the value genuinely changes, instead of
     // on every single FIBA action.

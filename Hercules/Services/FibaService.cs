@@ -1,6 +1,7 @@
-﻿using System;
+﻿﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
@@ -20,30 +21,23 @@ public class FibaService
     // FIBA resends the FULL action history on every "playbyplay" message, not just
     // the newest one. This tracks what we've already broadcast (keyed by actionNumber,
     // valued by a signature of its content) so we only fire OnActionReceived for
-    // actions that are genuinely new or have been edited. NOTE: GameState (score/
-    // clock/period) is no longer derived from this - see the "status" case below -
-    // this is now only used for the raw OnActionReceived play-by-play feed.
+    // actions that are genuinely new or have been edited. GameState (score/clock/
+    // period) is NOT derived from this - see the "status" case below.
     private readonly Dictionary<int, string> _seenActions = new();
-
-    // The very first "playbyplay" message after connecting contains the entire
-    // history of the match so far. That's backfill, not something that just
-    // happened - absorb it into _seenActions silently, and only start raising
-    // OnActionReceived once we're past it.
     private bool _playByPlayBaselineEstablished = false;
 
     // --- Boxscore stat-increase tracking ---
     // Last known cumulative stats per (teamNumber, playerNumber) - playerNumber
     // is null for a team's own total. Comparing each new boxscore snapshot
     // against this is how we detect "team 1 just made a 2pt", "player 5 on
-    // team 2 just fouled", etc. - see FibaTrackedStatRegistry for which stats
-    // are tracked.
+    // team 2 just fouled", etc - see FibaTrackedStatRegistry for which stats
+    // are tracked, and how "Last Scorer" below is derived from the same data.
     private readonly Dictionary<(int team, int? pno), FibaBoxScoreStats> _lastStats = new();
     private bool _boxScoreBaselineEstablished = false;
 
     public FibaGameState GameState { get; } = new();
 
     public event Action<FibaMatchInformation>? OnMatchInfoReceived;
-    public event Action<FibaTeam>? OnTeamSetupReceived;
     public event Action<FibaAction>? OnActionReceived;
     public event Action<FibaStatIncrease>? OnStatIncreased;
     public event Action? OnGameStateChanged;
@@ -92,12 +86,13 @@ public class FibaService
     {
         if (_writer == null) return;
 
-        // "st" (status) added - it's the authoritative current score/clock/period
-        // snapshot, so GameState no longer has to be reconstructed from playbyplay.
+        // "st" (status) = current score/clock/period. "of" (officials) = referees
+        // and commissioner. "te" (teams) = roster/coaches - was already requested
+        // but never actually handled, see the "teams" case below.
         var parameters = new
         {
             type = "parameters",
-            types = "se,ac,mi,te,st,box,pbp",
+            types = "se,ac,mi,te,st,box,pbp,of",
         };
 
         string json = JsonSerializer.Serialize(parameters);
@@ -160,6 +155,13 @@ public class FibaService
                 case "ping":
                     break;
 
+                // Period/foul/timeout CONFIGURATION for the match - not scoreboard
+                // data, nothing here maps to GameState. Kept as its own case (rather
+                // than falling into "default") just so it doesn't log as "unmapped"
+                // every time it arrives.
+                case "setup":
+                    break;
+
                 case "status":
                     // The authoritative "what should the scoreboard show right now"
                     // snapshot. No reconstruction, no guessing - just read it.
@@ -196,7 +198,12 @@ public class FibaService
 
                                 foreach (var player in team.Total.Players)
                                 {
-                                    DiffAndTrackStats(team.TeamNumber, player.PlayerNumber, player, isBaseline);
+                                    var previousPlayerStats = DiffAndTrackStats(team.TeamNumber, player.PlayerNumber, player, isBaseline);
+
+                                    if (!isBaseline)
+                                    {
+                                        UpdateLastScorerIfThisWasAScore(team.TeamNumber, player, previousPlayerStats);
+                                    }
                                 }
                             }
 
@@ -213,10 +220,70 @@ public class FibaService
                     var matchInfo = JsonSerializer.Deserialize<FibaMatchInformation>(json);
                     if (matchInfo != null) OnMatchInfoReceived?.Invoke(matchInfo);
                     break;
-        
-                case "setup":
-                    var team2 = JsonSerializer.Deserialize<FibaTeam>(json);
-                    if (team2 != null) OnTeamSetupReceived?.Invoke(team2);
+
+                // Roster: players (name/number/position) + coaches, per team.
+                // Previously this whole message type was never actually handled -
+                // it was being confused with "setup" above.
+                case "teams":
+                    try
+                    {
+                        var teamsMessage = JsonSerializer.Deserialize<FibaTeamsMessage>(json);
+                        if (teamsMessage != null)
+                        {
+                            foreach (var team in teamsMessage.Teams)
+                            {
+                                var roster = team.Players
+                                    .Select(p => new FibaRosterPlayer
+                                    {
+                                        Pno = p.Pno,
+                                        Number = p.ShirtNumber,
+                                        Name = FormatName(p.FirstName, p.FamilyName),
+                                        Position = p.PlayingPosition
+                                    })
+                                    .ToList();
+
+                                if (team.TeamNumber == 1)
+                                {
+                                    GameState.HomeRoster = roster;
+                                    GameState.HomeHeadCoach = FormatPerson(team.Coach);
+                                    GameState.HomeAssistantCoach1 = FormatPerson(team.AssistCoach1);
+                                    GameState.HomeAssistantCoach2 = FormatPerson(team.AssistCoach2);
+                                }
+                                else if (team.TeamNumber == 2)
+                                {
+                                    GameState.AwayRoster = roster;
+                                    GameState.AwayHeadCoach = FormatPerson(team.Coach);
+                                    GameState.AwayAssistantCoach1 = FormatPerson(team.AssistCoach1);
+                                    GameState.AwayAssistantCoach2 = FormatPerson(team.AssistCoach2);
+                                }
+                            }
+
+                            OnGameStateChanged?.Invoke();
+                        }
+                    }
+                    catch (JsonException jex)
+                    {
+                        Console.WriteLine($"[FIBA TEAMS PARSE ERROR]: {jex.Message}");
+                    }
+                    break;
+
+                case "officials":
+                    try
+                    {
+                        var officials = JsonSerializer.Deserialize<FibaOfficials>(json);
+                        if (officials != null)
+                        {
+                            GameState.Referee1 = FormatPerson(officials.Referee1);
+                            GameState.Referee2 = FormatPerson(officials.Referee2);
+                            GameState.Referee3 = FormatPerson(officials.Referee3);
+                            GameState.Commissioner = FormatPerson(officials.Commissioner);
+                            OnGameStateChanged?.Invoke();
+                        }
+                    }
+                    catch (JsonException jex)
+                    {
+                        Console.WriteLine($"[FIBA OFFICIALS PARSE ERROR]: {jex.Message}");
+                    }
                     break;
 
                 case "playbyplay":
@@ -274,9 +341,13 @@ public class FibaService
     }
 
     // Compares a fresh stat snapshot (team total, or one player's total)
-    // against the last one we saw for that same (team, player) key, and
-    // raises OnStatIncreased for every tracked stat that went up.
-    private void DiffAndTrackStats(int teamNumber, int? playerNumber, FibaBoxScoreStats current, bool isBaseline)
+    // against the last one we saw for that same (team, player) key, raises
+    // OnStatIncreased for every tracked stat that went up, and returns
+    // whatever the PREVIOUS snapshot was (null if this is the first time we've
+    // seen this key) so callers that need more than "did X increase" - like
+    // Last Scorer detection below, which needs the actual old/new shot counts -
+    // don't have to re-look it up themselves.
+    private FibaBoxScoreStats? DiffAndTrackStats(int teamNumber, int? playerNumber, FibaBoxScoreStats current, bool isBaseline)
     {
         var key = (teamNumber, playerNumber);
         _lastStats.TryGetValue(key, out var previous);
@@ -300,7 +371,54 @@ public class FibaService
         }
 
         _lastStats[key] = current;
+        return previous;
     }
+
+    // If this player's made-shot counts went up since the last snapshot,
+    // updates GameState's "Last Scorer" fields (number, name, points this
+    // play, made/attempted, accuracy). No-ops for a player update that
+    // wasn't actually a score (a foul, a rebound, etc).
+    private void UpdateLastScorerIfThisWasAScore(int teamNumber, FibaBoxScorePlayerStats current, FibaBoxScoreStats? previous)
+    {
+        int prevTwo = previous?.TwoPointersMade ?? 0;
+        int prevThree = previous?.ThreePointersMade ?? 0;
+        int prevFreeThrows = previous?.FreeThrowsMade ?? 0;
+
+        int pointsThisPlay;
+        if (current.ThreePointersMade > prevThree)
+        {
+            pointsThisPlay = 3 * (current.ThreePointersMade - prevThree);
+        }
+        else if (current.TwoPointersMade > prevTwo)
+        {
+            pointsThisPlay = 2 * (current.TwoPointersMade - prevTwo);
+        }
+        else if (current.FreeThrowsMade > prevFreeThrows)
+        {
+            pointsThisPlay = 1 * (current.FreeThrowsMade - prevFreeThrows);
+        }
+        else
+        {
+            return; // not a scoring update
+        }
+
+        var roster = teamNumber == 1 ? GameState.HomeRoster : GameState.AwayRoster;
+        var rosterEntry = roster.FirstOrDefault(p => p.Pno == current.PlayerNumber);
+
+        GameState.LastScorerNumber = rosterEntry?.Number ?? current.PlayerNumber.ToString();
+        GameState.LastScorerName = rosterEntry?.Name ?? string.Empty;
+        GameState.LastScorerPoints = pointsThisPlay.ToString();
+        GameState.LastScorerPointsAll = $"{current.FieldGoalsMade}/{current.FieldGoalsAttempted}";
+        GameState.LastScorerAccuracy = Math.Round(current.FieldGoalsPercentage * 100).ToString();
+
+        OnGameStateChanged?.Invoke();
+    }
+
+    private static string FormatName(string firstName, string familyName) =>
+        $"{firstName} {familyName}".Trim();
+
+    private static string FormatPerson(FibaPerson? person) =>
+        person == null ? string.Empty : FormatName(person.FirstName, person.FamilyName);
 
     public void Disconnect()
     {

@@ -46,6 +46,13 @@ public class FibaBoxScoreStats
     [JsonPropertyName("sSteals")] public int Steals { get; set; }
     [JsonPropertyName("sTurnovers")] public int Turnovers { get; set; }
     [JsonPropertyName("sBlocks")] public int Blocks { get; set; }
+
+    // Used for the "pointALL" (made/attempted) and accuracy display, not for
+    // trigger matching - field goals here means ALL shot types combined
+    // (2pt + 3pt, not free throws).
+    [JsonPropertyName("sFieldGoalsMade")] public int FieldGoalsMade { get; set; }
+    [JsonPropertyName("sFieldGoalsAttempted")] public int FieldGoalsAttempted { get; set; }
+    [JsonPropertyName("sFieldGoalsPercentage")] public double FieldGoalsPercentage { get; set; }
 }
 
 // Same stats, plus which player they belong to (used for the per-player

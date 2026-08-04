@@ -57,14 +57,25 @@
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
+                    
+                    <StackPanel Grid.Column="0"
+                                Orientation="Horizontal"
+                                VerticalAlignment="Center"
+                                Spacing="8"
+                                Margin="16,0">
 
-                    <TextBlock Grid.Column="0"
-                               Text="Hercules - Production Environment"
-                               Foreground="{DynamicResource TextSecondary}"
-                               FontWeight="SemiBold"
-                               FontSize="13"
-                               VerticalAlignment="Center"
-                               Margin="16,0"/>
+                        <PathIcon Data="{StaticResource LogoNoBg}"
+                                  Width="18"
+                                  Height="18"
+                                  HorizontalAlignment="Center"
+                                  VerticalAlignment="Center"/>
+
+                        <TextBlock Text="Hercules"
+                                   Foreground="{DynamicResource TextSecondary}"
+                                   FontWeight="SemiBold"
+                                   FontSize="13"
+                                   VerticalAlignment="Center"/>
+                    </StackPanel>
 
                     <!-- macOS-style traffic-light window controls -->
                     <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="0" Margin="0,0,16,0">
