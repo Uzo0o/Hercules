@@ -95,7 +95,9 @@
         BorderBrush="{DynamicResource BorderSubtle}"
         BorderThickness="0,0,1,0">
 
-    <StackPanel Spacing="8" Margin="12,24">
+    <Grid RowDefinitions="*, Auto">
+
+    <StackPanel Grid.Row="0" Spacing="8" Margin="12,24">
 
         <Button x:Name="NavDashboardBtn"
                 Classes="SidebarBtn Active"
@@ -185,7 +187,47 @@
             </StackPanel>
         </Button>
 
+        <Button x:Name="NavMatchStatsBtn" Classes="SidebarBtn" Click="NavMatchStats_Click">
+            <StackPanel Orientation="Horizontal" Spacing="12">
+                <Grid Width="20" Height="20">
+                    <PathIcon Data="{StaticResource IconStats}" Width="18" Height="18" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                </Grid>
+                <TextBlock Text="Match Statistics"/>
+            </StackPanel>
+        </Button>
+
     </StackPanel>
+
+    <!-- TEMPLATE SAVE/LOAD - a whole-app action (Dashboard mappings + Script
+         Triggers + Overlay Automations + FIBA connection all in one file),
+         so it lives outside the per-tab nav rather than on any one screen. -->
+    <StackPanel Grid.Row="1" VerticalAlignment="Bottom" Margin="12,0,12,20" Spacing="8">
+        <Rectangle Height="1" Fill="{StaticResource BorderSubtle}" Margin="4,0,4,8"/>
+        <TextBlock Text="TEMPLATE" Classes="Label" FontSize="11" Margin="16,0,0,0" Opacity="0.7"/>
+
+        <Button Classes="SidebarBtn" Click="SaveTemplate_Click">
+            <StackPanel Orientation="Horizontal" Spacing="12">
+                <Grid Width="20" Height="20">
+                    <PathIcon Data="{StaticResource IconSave}" Width="18" Height="18" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                </Grid>
+                <TextBlock Text="Save Template"/>
+            </StackPanel>
+        </Button>
+
+        <Button Classes="SidebarBtn" Click="LoadTemplate_Click">
+            <StackPanel Orientation="Horizontal" Spacing="12">
+                <Grid Width="20" Height="20">
+                    <PathIcon Data="{StaticResource IconFolder}" Width="18" Height="18" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                </Grid>
+                <TextBlock Text="Load Template"/>
+            </StackPanel>
+        </Button>
+
+        <TextBlock x:Name="TemplateStatusText" Classes="Muted" FontSize="12" Margin="16,4,4,0"
+                   TextWrapping="Wrap" IsVisible="False"/>
+    </StackPanel>
+
+    </Grid>
 
 </Border>
 

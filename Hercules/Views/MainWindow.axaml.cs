@@ -1,9 +1,14 @@
 using System;
+using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media;
+using Avalonia.Platform.Storage;
+using Hercules.Models.Templates;
+using Hercules.Services;
+using Hercules.ViewModels;
 
 namespace Hercules.Views;
 
@@ -15,6 +20,8 @@ public partial class MainWindow : Window
     private readonly ManualControlView _manualControlView = new ManualControlView();
     private readonly ScriptTriggerView _scriptTriggerView;
     private readonly OverlayAutomationView _overlayAutomationView;
+    private readonly MatchStatisticsView _matchStatisticsView;
+    private readonly TemplateService _templateService = new();
 
     public MainWindow()
     {
@@ -22,6 +29,7 @@ public partial class MainWindow : Window
         
         _scriptTriggerView = new ScriptTriggerView(_dashboardView.SharedFibaService);
         _overlayAutomationView = new OverlayAutomationView(_dashboardView.SharedFibaService);
+        _matchStatisticsView = new MatchStatisticsView(_dashboardView.SharedFibaService);
         ScreenRouter.Content = _dashboardView;
 
         // Square off the rounded corners while maximized (a maximized window
@@ -71,6 +79,130 @@ public partial class MainWindow : Window
         SetActiveNav(NavOverlayAutomationsBtn);
     }
 
+    private void NavMatchStats_Click(object? sender, RoutedEventArgs e)
+    {
+        ScreenRouter.Content = _matchStatisticsView;
+        SetActiveNav(NavMatchStatsBtn);
+    }
+
+    // --- Template Save/Load ---
+    // Bundles the Dashboard's stat->vMix mapping rows, the FIBA connection
+    // details, the Script Trigger rows, and the Overlay Automation rows into
+    // one JSON file. This is deliberately whole-app (not per-tab) since a
+    // "match template" only makes sense as the full setup together - see
+    // HerculesTemplate for why vMix inputs/fields are matched by name rather
+    // than saved as live object references.
+    private async void SaveTemplate_Click(object? sender, RoutedEventArgs e)
+    {
+        var topLevel = TopLevel.GetTopLevel(this);
+        if (topLevel?.StorageProvider == null) return;
+
+        var file = await topLevel.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+        {
+            Title = "Save Hercules Template",
+            SuggestedFileName = "match-template.json",
+            DefaultExtension = "json",
+            FileTypeChoices = new[]
+            {
+                new FilePickerFileType("Hercules Template (*.json)") { Patterns = new[] { "*.json" } }
+            }
+        });
+
+        if (file == null) return; // user cancelled the picker
+
+        var dashboardVm = (DashboardViewModel)_dashboardView.DataContext!;
+        var scriptVm = (ScriptTriggerViewModel)_scriptTriggerView.DataContext!;
+        var overlayVm = (OverlayAutomationViewModel)_overlayAutomationView.DataContext!;
+
+        var template = new HerculesTemplate
+        {
+            FibaIpAddress = dashboardVm.FibaIpAddress,
+            FibaPort = dashboardVm.FibaPort,
+            MappingRows = dashboardVm.ExportMappingRows(),
+            ScriptTriggerRows = scriptVm.ExportRows(),
+            OverlayAutomationRows = overlayVm.ExportRows(),
+        };
+
+        try
+        {
+            await _templateService.SaveAsync(file.Path.LocalPath, template);
+            ShowTemplateStatus($"Saved: {file.Name} ({template.MappingRows.Count} mappings, " +
+                                $"{template.ScriptTriggerRows.Count} scripts, {template.OverlayAutomationRows.Count} overlays)");
+        }
+        catch (Exception ex)
+        {
+            ShowTemplateStatus($"Save failed: {ex.Message}", isError: true);
+        }
+    }
+
+    private async void LoadTemplate_Click(object? sender, RoutedEventArgs e)
+    {
+        var topLevel = TopLevel.GetTopLevel(this);
+        if (topLevel?.StorageProvider == null) return;
+
+        var files = await topLevel.StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+        {
+            Title = "Load Hercules Template",
+            AllowMultiple = false,
+            FileTypeFilter = new[]
+            {
+                new FilePickerFileType("Hercules Template (*.json)") { Patterns = new[] { "*.json" } }
+            }
+        });
+
+        if (files.Count == 0) return; // user cancelled the picker
+
+        var template = await _templateService.LoadAsync(files[0].Path.LocalPath);
+        if (template == null)
+        {
+            ShowTemplateStatus("Load failed: file is missing or not a valid template.", isError: true);
+            return;
+        }
+
+        var dashboardVm = (DashboardViewModel)_dashboardView.DataContext!;
+        var scriptVm = (ScriptTriggerViewModel)_scriptTriggerView.DataContext!;
+        var overlayVm = (OverlayAutomationViewModel)_overlayAutomationView.DataContext!;
+
+        dashboardVm.FibaIpAddress = template.FibaIpAddress;
+        dashboardVm.FibaPort = template.FibaPort;
+        dashboardVm.ApplyMappingRows(template.MappingRows);
+        scriptVm.ApplyTemplate(template.ScriptTriggerRows);
+        overlayVm.ApplyTemplate(template.OverlayAutomationRows);
+
+        // vMix inputs/fields are matched by name against whatever's currently
+        // known (MasterVmixInputs/AvailableInputs) - if vMix hasn't been
+        // connected/refreshed yet in this session those rows just won't have
+        // resolved yet, so nudge the user rather than leave it silent. They
+        // resolve automatically the moment "Refresh vMix Sources" is clicked
+        // on the Dashboard or Overlay Automations tab - no need to re-load.
+        int unresolvedCount = 0;
+        foreach (var row in dashboardVm.MappingRows) if (row.NeedsVmixReselect) unresolvedCount++;
+        foreach (var row in overlayVm.Rows) if (row.NeedsVmixReselect) unresolvedCount++;
+
+        string message = $"Loaded: {template.MappingRows.Count} mappings, {template.ScriptTriggerRows.Count} scripts, " +
+                          $"{template.OverlayAutomationRows.Count} overlays";
+        if (unresolvedCount > 0)
+        {
+            message += $" - {unresolvedCount} row(s) need vMix reconnected + \"Refresh vMix Sources\" to finish matching.";
+        }
+        ShowTemplateStatus(message);
+    }
+
+    private async void ShowTemplateStatus(string message, bool isError = false)
+    {
+        TemplateStatusText.Text = message;
+        // Matches AccentDanger / TextSecondary in AppDefaultStyles.axaml -
+        // set directly rather than via resource lookup since this is set
+        // from code-behind, not a themed XAML setter.
+        TemplateStatusText.Foreground = new SolidColorBrush(Color.Parse(isError ? "#EF4444" : "#A39C97"));
+        TemplateStatusText.IsVisible = true;
+
+        // Auto-clear after a while rather than leaving a stale status message
+        // sitting in the sidebar forever.
+        await Task.Delay(8000);
+        if (TemplateStatusText.Text == message) TemplateStatusText.IsVisible = false;
+    }
+
     // Highlights whichever sidebar button was just clicked and clears the others,
     // mirroring the .nav-btn.active state from the HTML mockup.
     private void SetActiveNav(Button active)
@@ -80,6 +212,7 @@ public partial class MainWindow : Window
         NavVmixBtn.Classes.Set("Active", active == NavVmixBtn);
         NavScriptsBtn.Classes.Set("Active", active == NavScriptsBtn);
         NavOverlayAutomationsBtn.Classes.Set("Active", active == NavOverlayAutomationsBtn);
+        NavMatchStatsBtn.Classes.Set("Active", active == NavMatchStatsBtn);
     }
 
     // --- Custom resize (SystemDecorations="None" removes the OS's own grips) ---

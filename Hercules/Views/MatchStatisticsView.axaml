@@ -1,0 +1,225 @@
+﻿<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Hercules.ViewModels"
+             xmlns:conv="using:Hercules.Converters"
+             x:Class="Hercules.Views.MatchStatisticsView"
+             x:DataType="vm:MatchStatisticsViewModel">
+
+    <UserControl.Resources>
+        <conv:FoulCountToBrushConverter x:Key="FoulBrush"/>
+    </UserControl.Resources>
+
+    <!--
+        Column layout ("44,*,44,52,64,52,64,64,64,44,44,44,44,44") is repeated
+        literally on every header/row/footer Grid below (6 places, 2 identical
+        per team table) rather than shared via a resource, since Avalonia's
+        ColumnDefinitions type-converter isn't reliably resolved through
+        StaticResource in an attribute. Keep all 6 identical if you change one.
+    -->
+
+    <Grid RowDefinitions="Auto, Auto, *">
+
+        <!-- Row 0: Header -->
+        <Grid Grid.Row="0" ColumnDefinitions="*, Auto" Margin="0,0,0,20">
+            <TextBlock Grid.Column="0" Classes="PageTitle" Text="Match Statistics" VerticalAlignment="Center"/>
+            <Border Grid.Column="1" Classes="StatusPill" Classes.Connected="{Binding HasLiveData}">
+                <TextBlock Text="{Binding LiveStatusText}"/>
+            </Border>
+        </Grid>
+
+        <!-- Row 1: Scoreboard -->
+        <Border Grid.Row="1" Classes="Card" Margin="0,0,0,20">
+            <Grid ColumnDefinitions="*, Auto, *">
+
+                <!-- Home -->
+                <StackPanel Grid.Column="0" Spacing="4" HorizontalAlignment="Center">
+                    <TextBlock Text="{Binding HomeTeamName}" Classes="Label" FontSize="15"
+                               HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap"/>
+                    <TextBlock Text="{Binding HomeScore}" FontSize="48" FontWeight="Bold"
+                               Foreground="{StaticResource TextPrimary}" HorizontalAlignment="Center"/>
+                </StackPanel>
+
+                <!-- Period / Clock -->
+                <StackPanel Grid.Column="1" Spacing="6" VerticalAlignment="Center" Margin="32,0" MinWidth="120">
+                    <Border Background="{StaticResource AccentOrangeTint}" CornerRadius="{StaticResource RadiusPill}"
+                            Padding="14,4" HorizontalAlignment="Center">
+                        <TextBlock Text="{Binding PeriodDisplay}" FontWeight="SemiBold"
+                                   Foreground="{StaticResource AccentOrange}" FontSize="13"/>
+                    </Border>
+                    <TextBlock Text="{Binding GameClock}" FontSize="20" FontWeight="SemiBold"
+                               Foreground="{StaticResource TextPrimary}" HorizontalAlignment="Center"
+                               FontFamily="Consolas,Menlo,monospace"/>
+                </StackPanel>
+
+                <!-- Away -->
+                <StackPanel Grid.Column="2" Spacing="4" HorizontalAlignment="Center">
+                    <TextBlock Text="{Binding AwayTeamName}" Classes="Label" FontSize="15"
+                               HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap"/>
+                    <TextBlock Text="{Binding AwayScore}" FontSize="48" FontWeight="Bold"
+                               Foreground="{StaticResource TextPrimary}" HorizontalAlignment="Center"/>
+                </StackPanel>
+
+            </Grid>
+        </Border>
+
+        <!-- Row 2: Team tables -->
+        <ScrollViewer Grid.Row="2">
+            <StackPanel Spacing="20">
+
+                <!-- Empty state - shown until the first boxscore snapshot arrives -->
+                <Border Classes="Card" IsVisible="{Binding !HasLiveData}">
+                    <StackPanel Spacing="6" HorizontalAlignment="Center" Margin="0,20">
+                        <TextBlock Text="No live match data yet" Classes="Label" FontSize="15" HorizontalAlignment="Center"/>
+                        <TextBlock Text="Connect to FIBA on the Dashboard tab - this table updates automatically once the feed starts sending box score data."
+                                   Classes="Muted" HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap" MaxWidth="420"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- Home team table -->
+                <Border Classes="Card" Padding="20" IsVisible="{Binding HasLiveData}">
+                    <StackPanel Spacing="10">
+                        <TextBlock Text="{Binding HomeTeamName}" Classes="PageTitle" FontSize="16"/>
+
+                        <!-- Column headers -->
+                        <Grid ColumnDefinitions="44,*,44,52,64,52,64,64,64,44,44,44,44,44" Margin="4,0">
+                            <TextBlock Grid.Column="0" Text="#" Classes="Label"/>
+                            <TextBlock Grid.Column="1" Text="Player" Classes="Label"/>
+                            <TextBlock Grid.Column="2" Text="POS" Classes="Label" HorizontalAlignment="Center"/>
+                            <TextBlock Grid.Column="3" Text="PTS" Classes="Label" HorizontalAlignment="Center"/>
+                            <TextBlock Grid.Column="4" Text="FG" Classes="Label" HorizontalAlignment="Center"/>
+                            <TextBlock Grid.Column="5" Text="FG%" Classes="Label" HorizontalAlignment="Center"/>
+                            <TextBlock Grid.Column="6" Text="3PT" Classes="Label" HorizontalAlignment="Center"/>
+                            <TextBlock Grid.Column="7" Text="FT" Classes="Label" HorizontalAlignment="Center"/>
+                            <TextBlock Grid.Column="8" Text="REB" Classes="Label" HorizontalAlignment="Center" ToolTip.Tip="Offensive-Defensive-Total"/>
+                            <TextBlock Grid.Column="9" Text="AST" Classes="Label" HorizontalAlignment="Center"/>
+                            <TextBlock Grid.Column="10" Text="STL" Classes="Label" HorizontalAlignment="Center"/>
+                            <TextBlock Grid.Column="11" Text="BLK" Classes="Label" HorizontalAlignment="Center"/>
+                            <TextBlock Grid.Column="12" Text="TO" Classes="Label" HorizontalAlignment="Center"/>
+                            <TextBlock Grid.Column="13" Text="PF" Classes="Label" HorizontalAlignment="Center"/>
+                        </Grid>
+                        <Rectangle Height="1" Fill="{StaticResource BorderSubtle}"/>
+
+                        <!-- Player rows -->
+                        <ItemsControl ItemsSource="{Binding HomePlayers}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate><StackPanel Spacing="2"/></ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border CornerRadius="{StaticResource RadiusSm}" Padding="4,7">
+                                        <Grid ColumnDefinitions="44,*,44,52,64,52,64,64,64,44,44,44,44,44">
+                                            <TextBlock Grid.Column="0" Text="{Binding Number}" Foreground="{StaticResource TextSecondary}" FontWeight="SemiBold"/>
+                                            <TextBlock Grid.Column="1" Text="{Binding Name}" Foreground="{StaticResource TextPrimary}" TextTrimming="CharacterEllipsis"/>
+                                            <TextBlock Grid.Column="2" Text="{Binding Position}" Foreground="{StaticResource TextSecondary}" HorizontalAlignment="Center"/>
+                                            <TextBlock Grid.Column="3" Text="{Binding Points}" Foreground="{StaticResource TextPrimary}" FontWeight="SemiBold" HorizontalAlignment="Center"/>
+                                            <TextBlock Grid.Column="4" Text="{Binding FieldGoalsDisplay}" Foreground="{StaticResource TextSecondary}" HorizontalAlignment="Center"/>
+                                            <TextBlock Grid.Column="5" Text="{Binding FieldGoalPercentageDisplay}" Foreground="{StaticResource TextSecondary}" HorizontalAlignment="Center"/>
+                                            <TextBlock Grid.Column="6" Text="{Binding ThreePointersDisplay}" Foreground="{StaticResource TextSecondary}" HorizontalAlignment="Center"/>
+                                            <TextBlock Grid.Column="7" Text="{Binding FreeThrowsDisplay}" Foreground="{StaticResource TextSecondary}" HorizontalAlignment="Center"/>
+                                            <TextBlock Grid.Column="8" Text="{Binding ReboundsDisplay}" Foreground="{StaticResource TextSecondary}" HorizontalAlignment="Center"/>
+                                            <TextBlock Grid.Column="9" Text="{Binding Assists}" Foreground="{StaticResource TextSecondary}" HorizontalAlignment="Center"/>
+                                            <TextBlock Grid.Column="10" Text="{Binding Steals}" Foreground="{StaticResource TextSecondary}" HorizontalAlignment="Center"/>
+                                            <TextBlock Grid.Column="11" Text="{Binding Blocks}" Foreground="{StaticResource TextSecondary}" HorizontalAlignment="Center"/>
+                                            <TextBlock Grid.Column="12" Text="{Binding Turnovers}" Foreground="{StaticResource TextSecondary}" HorizontalAlignment="Center"/>
+                                            <TextBlock Grid.Column="13" Text="{Binding FoulsPersonal}" FontWeight="SemiBold" HorizontalAlignment="Center"
+                                                       Foreground="{Binding FoulsPersonal, Converter={StaticResource FoulBrush}}"/>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <!-- Team totals footer -->
+                        <Rectangle Height="1" Fill="{StaticResource BorderSubtle}" Margin="0,4,0,0"/>
+                        <Grid ColumnDefinitions="44,*,44,52,64,52,64,64,64,44,44,44,44,44" Margin="4,4">
+                            <TextBlock Grid.Column="1" Text="Team Totals" Classes="Label" FontWeight="Bold"/>
+                            <TextBlock Grid.Column="3" Text="{Binding HomeTeamStats.Points}" Foreground="{StaticResource TextPrimary}" FontWeight="Bold" HorizontalAlignment="Center"/>
+                            <TextBlock Grid.Column="4" Text="{Binding HomeTeamStats.FieldGoalsDisplay}" Classes="Label" HorizontalAlignment="Center"/>
+                            <TextBlock Grid.Column="5" Text="{Binding HomeTeamStats.FieldGoalPercentageDisplay}" Classes="Label" HorizontalAlignment="Center"/>
+                            <TextBlock Grid.Column="6" Text="{Binding HomeTeamStats.ThreePointersDisplay}" Classes="Label" HorizontalAlignment="Center"/>
+                            <TextBlock Grid.Column="7" Text="{Binding HomeTeamStats.FreeThrowsDisplay}" Classes="Label" HorizontalAlignment="Center"/>
+                            <TextBlock Grid.Column="8" Text="{Binding HomeTeamStats.ReboundsDisplay}" Classes="Label" HorizontalAlignment="Center"/>
+                            <TextBlock Grid.Column="9" Text="{Binding HomeTeamStats.Assists}" Classes="Label" HorizontalAlignment="Center"/>
+                            <TextBlock Grid.Column="10" Text="{Binding HomeTeamStats.Steals}" Classes="Label" HorizontalAlignment="Center"/>
+                            <TextBlock Grid.Column="11" Text="{Binding HomeTeamStats.Blocks}" Classes="Label" HorizontalAlignment="Center"/>
+                            <TextBlock Grid.Column="12" Text="{Binding HomeTeamStats.Turnovers}" Classes="Label" HorizontalAlignment="Center"/>
+                            <TextBlock Grid.Column="13" Text="{Binding HomeTeamStats.FoulsPersonal}" Classes="Label" HorizontalAlignment="Center"/>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <!-- Away team table -->
+                <Border Classes="Card" Padding="20" IsVisible="{Binding HasLiveData}">
+                    <StackPanel Spacing="10">
+                        <TextBlock Text="{Binding AwayTeamName}" Classes="PageTitle" FontSize="16"/>
+
+                        <Grid ColumnDefinitions="44,*,44,52,64,52,64,64,64,44,44,44,44,44" Margin="4,0">
+                            <TextBlock Grid.Column="0" Text="#" Classes="Label"/>
+                            <TextBlock Grid.Column="1" Text="Player" Classes="Label"/>
+                            <TextBlock Grid.Column="2" Text="POS" Classes="Label" HorizontalAlignment="Center"/>
+                            <TextBlock Grid.Column="3" Text="PTS" Classes="Label" HorizontalAlignment="Center"/>
+                            <TextBlock Grid.Column="4" Text="FG" Classes="Label" HorizontalAlignment="Center"/>
+                            <TextBlock Grid.Column="5" Text="FG%" Classes="Label" HorizontalAlignment="Center"/>
+                            <TextBlock Grid.Column="6" Text="3PT" Classes="Label" HorizontalAlignment="Center"/>
+                            <TextBlock Grid.Column="7" Text="FT" Classes="Label" HorizontalAlignment="Center"/>
+                            <TextBlock Grid.Column="8" Text="REB" Classes="Label" HorizontalAlignment="Center" ToolTip.Tip="Offensive-Defensive-Total"/>
+                            <TextBlock Grid.Column="9" Text="AST" Classes="Label" HorizontalAlignment="Center"/>
+                            <TextBlock Grid.Column="10" Text="STL" Classes="Label" HorizontalAlignment="Center"/>
+                            <TextBlock Grid.Column="11" Text="BLK" Classes="Label" HorizontalAlignment="Center"/>
+                            <TextBlock Grid.Column="12" Text="TO" Classes="Label" HorizontalAlignment="Center"/>
+                            <TextBlock Grid.Column="13" Text="PF" Classes="Label" HorizontalAlignment="Center"/>
+                        </Grid>
+                        <Rectangle Height="1" Fill="{StaticResource BorderSubtle}"/>
+
+                        <ItemsControl ItemsSource="{Binding AwayPlayers}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate><StackPanel Spacing="2"/></ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border CornerRadius="{StaticResource RadiusSm}" Padding="4,7">
+                                        <Grid ColumnDefinitions="44,*,44,52,64,52,64,64,64,44,44,44,44,44">
+                                            <TextBlock Grid.Column="0" Text="{Binding Number}" Foreground="{StaticResource TextSecondary}" FontWeight="SemiBold"/>
+                                            <TextBlock Grid.Column="1" Text="{Binding Name}" Foreground="{StaticResource TextPrimary}" TextTrimming="CharacterEllipsis"/>
+                                            <TextBlock Grid.Column="2" Text="{Binding Position}" Foreground="{StaticResource TextSecondary}" HorizontalAlignment="Center"/>
+                                            <TextBlock Grid.Column="3" Text="{Binding Points}" Foreground="{StaticResource TextPrimary}" FontWeight="SemiBold" HorizontalAlignment="Center"/>
+                                            <TextBlock Grid.Column="4" Text="{Binding FieldGoalsDisplay}" Foreground="{StaticResource TextSecondary}" HorizontalAlignment="Center"/>
+                                            <TextBlock Grid.Column="5" Text="{Binding FieldGoalPercentageDisplay}" Foreground="{StaticResource TextSecondary}" HorizontalAlignment="Center"/>
+                                            <TextBlock Grid.Column="6" Text="{Binding ThreePointersDisplay}" Foreground="{StaticResource TextSecondary}" HorizontalAlignment="Center"/>
+                                            <TextBlock Grid.Column="7" Text="{Binding FreeThrowsDisplay}" Foreground="{StaticResource TextSecondary}" HorizontalAlignment="Center"/>
+                                            <TextBlock Grid.Column="8" Text="{Binding ReboundsDisplay}" Foreground="{StaticResource TextSecondary}" HorizontalAlignment="Center"/>
+                                            <TextBlock Grid.Column="9" Text="{Binding Assists}" Foreground="{StaticResource TextSecondary}" HorizontalAlignment="Center"/>
+                                            <TextBlock Grid.Column="10" Text="{Binding Steals}" Foreground="{StaticResource TextSecondary}" HorizontalAlignment="Center"/>
+                                            <TextBlock Grid.Column="11" Text="{Binding Blocks}" Foreground="{StaticResource TextSecondary}" HorizontalAlignment="Center"/>
+                                            <TextBlock Grid.Column="12" Text="{Binding Turnovers}" Foreground="{StaticResource TextSecondary}" HorizontalAlignment="Center"/>
+                                            <TextBlock Grid.Column="13" Text="{Binding FoulsPersonal}" FontWeight="SemiBold" HorizontalAlignment="Center"
+                                                       Foreground="{Binding FoulsPersonal, Converter={StaticResource FoulBrush}}"/>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <Rectangle Height="1" Fill="{StaticResource BorderSubtle}" Margin="0,4,0,0"/>
+                        <Grid ColumnDefinitions="44,*,44,52,64,52,64,64,64,44,44,44,44,44" Margin="4,4">
+                            <TextBlock Grid.Column="1" Text="Team Totals" Classes="Label" FontWeight="Bold"/>
+                            <TextBlock Grid.Column="3" Text="{Binding AwayTeamStats.Points}" Foreground="{StaticResource TextPrimary}" FontWeight="Bold" HorizontalAlignment="Center"/>
+                            <TextBlock Grid.Column="4" Text="{Binding AwayTeamStats.FieldGoalsDisplay}" Classes="Label" HorizontalAlignment="Center"/>
+                            <TextBlock Grid.Column="5" Text="{Binding AwayTeamStats.FieldGoalPercentageDisplay}" Classes="Label" HorizontalAlignment="Center"/>
+                            <TextBlock Grid.Column="6" Text="{Binding AwayTeamStats.ThreePointersDisplay}" Classes="Label" HorizontalAlignment="Center"/>
+                            <TextBlock Grid.Column="7" Text="{Binding AwayTeamStats.FreeThrowsDisplay}" Classes="Label" HorizontalAlignment="Center"/>
+                            <TextBlock Grid.Column="8" Text="{Binding AwayTeamStats.ReboundsDisplay}" Classes="Label" HorizontalAlignment="Center"/>
+                            <TextBlock Grid.Column="9" Text="{Binding AwayTeamStats.Assists}" Classes="Label" HorizontalAlignment="Center"/>
+                            <TextBlock Grid.Column="10" Text="{Binding AwayTeamStats.Steals}" Classes="Label" HorizontalAlignment="Center"/>
+                            <TextBlock Grid.Column="11" Text="{Binding AwayTeamStats.Blocks}" Classes="Label" HorizontalAlignment="Center"/>
+                            <TextBlock Grid.Column="12" Text="{Binding AwayTeamStats.Turnovers}" Classes="Label" HorizontalAlignment="Center"/>
+                            <TextBlock Grid.Column="13" Text="{Binding AwayTeamStats.FoulsPersonal}" Classes="Label" HorizontalAlignment="Center"/>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+            </StackPanel>
+        </ScrollViewer>
+
+    </Grid>
+</UserControl>

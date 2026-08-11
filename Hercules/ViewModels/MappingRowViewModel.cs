@@ -1,5 +1,7 @@
-﻿using System.Collections.ObjectModel;
+﻿using System;
+using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Linq;
 using System.Runtime.CompilerServices;
 using Hercules.Models;
 using Hercules.Models.Fiba;
@@ -108,6 +110,80 @@ public class MappingRowViewModel : INotifyPropertyChanged
 
     // This row's private list of fields, populated when SelectedInput changes
     public ObservableCollection<VmixField> AvailableFields { get; set; } = new();
+
+    // --- Template restore support ---
+    // When a saved template is loaded, we don't yet know whether vMix has
+    // been (re)connected and reports the same input/field names - so the
+    // loaded target is stashed here and matched against AvailableVmixInputs
+    // both immediately AND every time DashboardViewModel refreshes vMix
+    // sources, until it resolves. See ApplyPendingVmixTarget/TryResolvePendingVmixMatch.
+    private string? _pendingVmixInputTitle;
+    private string? _pendingVmixFieldName;
+
+    // True while this row was loaded from a template but couldn't (yet) be
+    // matched to a currently-known vMix input/field - lets the row template
+    // show a "needs reselecting" hint instead of silently sitting blank.
+    private bool _needsVmixReselect;
+    public bool NeedsVmixReselect
+    {
+        get => _needsVmixReselect;
+        private set
+        {
+            if (_needsVmixReselect != value)
+            {
+                _needsVmixReselect = value;
+                OnPropertyChanged();
+            }
+        }
+    }
+
+    public void ApplyPendingVmixTarget(string? inputTitle, string? fieldName)
+    {
+        _pendingVmixInputTitle = inputTitle;
+        _pendingVmixFieldName = fieldName;
+        TryResolvePendingVmixMatch();
+    }
+
+    // Matched by Title/Name (not vMix's "Key") since Key is assigned by vMix
+    // at runtime and isn't guaranteed stable across vMix restarts even with
+    // the same preset loaded - Title/Name are the human-chosen, stable ones.
+    public void TryResolvePendingVmixMatch()
+    {
+        if (string.IsNullOrEmpty(_pendingVmixInputTitle))
+        {
+            NeedsVmixReselect = false;
+            return;
+        }
+
+        var inputMatch = AvailableVmixInputs.FirstOrDefault(i =>
+            string.Equals(i.Title, _pendingVmixInputTitle, StringComparison.OrdinalIgnoreCase));
+
+        if (inputMatch == null)
+        {
+            NeedsVmixReselect = true;
+            return;
+        }
+
+        SelectedInput = inputMatch; // also repopulates AvailableFields via its own setter
+
+        if (string.IsNullOrEmpty(_pendingVmixFieldName))
+        {
+            NeedsVmixReselect = false;
+        }
+        else
+        {
+            var fieldMatch = AvailableFields.FirstOrDefault(f =>
+                string.Equals(f.Name, _pendingVmixFieldName, StringComparison.OrdinalIgnoreCase));
+            SelectedField = fieldMatch;
+            NeedsVmixReselect = fieldMatch == null;
+        }
+
+        if (!NeedsVmixReselect)
+        {
+            _pendingVmixInputTitle = null;
+            _pendingVmixFieldName = null;
+        }
+    }
 
     public event PropertyChangedEventHandler? PropertyChanged;
     protected void OnPropertyChanged([CallerMemberName] string? propertyName = null)

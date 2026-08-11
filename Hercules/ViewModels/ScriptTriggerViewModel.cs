@@ -1,9 +1,12 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Linq;
 using System.Runtime.CompilerServices;
 using Avalonia.Threading;
 using Hercules.Models.Fiba;
+using Hercules.Models.Templates;
 using Hercules.Services;
 
 namespace Hercules.ViewModels;
@@ -65,6 +68,33 @@ public class ScriptTriggerViewModel : INotifyPropertyChanged
     public void RemoveRow(ScriptTriggerRowViewModel row)
     {
         if (TriggerRows.Contains(row)) TriggerRows.Remove(row);
+    }
+
+    // --- Template save/load ---
+    // TriggerKey is a safe direct match key here (unlike the Dashboard's
+    // FibaStatDefinition) since FibaScriptTriggerRegistry has no per-slot
+    // duplicate keys - every entry's Key is genuinely unique.
+    public List<ScriptTriggerRowTemplate> ExportRows() => TriggerRows.Select(row => new ScriptTriggerRowTemplate
+    {
+        TriggerKey = row.SelectedTrigger?.Key.ToString(),
+        ScriptName = row.ScriptName,
+    }).ToList();
+
+    public void ApplyTemplate(List<ScriptTriggerRowTemplate> rowTemplates)
+    {
+        TriggerRows.Clear();
+
+        foreach (var rowTemplate in rowTemplates)
+        {
+            var row = new ScriptTriggerRowViewModel(AvailableTriggers)
+            {
+                SelectedTrigger = AvailableTriggers.FirstOrDefault(t => t.Key.ToString() == rowTemplate.TriggerKey),
+                ScriptName = rowTemplate.ScriptName,
+            };
+            TriggerRows.Add(row);
+        }
+
+        if (TriggerRows.Count == 0) AddRow();
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;

@@ -1,6 +1,8 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Linq;
 using System.Runtime.CompilerServices;
 using Hercules.Models;
 using Hercules.Models.Fiba;
@@ -63,6 +65,44 @@ public class OverlayAutomationRowViewModel : INotifyPropertyChanged
     {
         get => _autoHideMs;
         set { if (_autoHideMs != value) { _autoHideMs = value; OnPropertyChanged(); } }
+    }
+
+    // --- Template restore support (same idea as MappingRowViewModel) ---
+    private string? _pendingVmixInputTitle;
+
+    private bool _needsVmixReselect;
+    public bool NeedsVmixReselect
+    {
+        get => _needsVmixReselect;
+        private set { if (_needsVmixReselect != value) { _needsVmixReselect = value; OnPropertyChanged(); } }
+    }
+
+    public void ApplyPendingVmixTarget(string? inputTitle)
+    {
+        _pendingVmixInputTitle = inputTitle;
+        TryResolvePendingVmixMatch();
+    }
+
+    public void TryResolvePendingVmixMatch()
+    {
+        if (string.IsNullOrEmpty(_pendingVmixInputTitle))
+        {
+            NeedsVmixReselect = false;
+            return;
+        }
+
+        var match = AvailableInputs.FirstOrDefault(i =>
+            string.Equals(i.Title, _pendingVmixInputTitle, StringComparison.OrdinalIgnoreCase));
+
+        if (match == null)
+        {
+            NeedsVmixReselect = true;
+            return;
+        }
+
+        SelectedInput = match;
+        NeedsVmixReselect = false;
+        _pendingVmixInputTitle = null;
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;

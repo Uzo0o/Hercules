@@ -1,11 +1,14 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 using Avalonia.Threading;
 using Hercules.Models;
 using Hercules.Models.Fiba;
+using Hercules.Models.Templates;
 using Hercules.Services;
 
 namespace Hercules.ViewModels;
@@ -40,6 +43,11 @@ public class OverlayAutomationViewModel : INotifyPropertyChanged
         var inputs = await _vmixService.FetchAllInputsAsync();
         AvailableInputs.Clear();
         foreach (var input in inputs) AvailableInputs.Add(input);
+
+        // Same reasoning as DashboardViewModel.LoadVmixData - give any row
+        // restored from a template another shot at matching its vMix input
+        // now that the source list has changed.
+        foreach (var row in Rows) row.TryResolvePendingVmixMatch();
     }
 
     // --- THE ROUTING ENGINE ---
@@ -85,6 +93,36 @@ public class OverlayAutomationViewModel : INotifyPropertyChanged
     public void RemoveRow(OverlayAutomationRowViewModel row)
     {
         if (Rows.Contains(row)) Rows.Remove(row);
+    }
+
+    // --- Template save/load ---
+    public List<OverlayAutomationRowTemplate> ExportRows() => Rows.Select(row => new OverlayAutomationRowTemplate
+    {
+        TriggerKey = row.SelectedTrigger?.Key.ToString(),
+        VmixInputTitle = row.SelectedInput?.Title,
+        OverlayChannel = row.OverlayChannel,
+        AutoHideEnabled = row.AutoHideEnabled,
+        AutoHideMs = row.AutoHideMs,
+    }).ToList();
+
+    public void ApplyTemplate(List<OverlayAutomationRowTemplate> rowTemplates)
+    {
+        Rows.Clear();
+
+        foreach (var rowTemplate in rowTemplates)
+        {
+            var row = new OverlayAutomationRowViewModel(AvailableTriggers, AvailableInputs)
+            {
+                SelectedTrigger = AvailableTriggers.FirstOrDefault(t => t.Key.ToString() == rowTemplate.TriggerKey),
+                OverlayChannel = rowTemplate.OverlayChannel,
+                AutoHideEnabled = rowTemplate.AutoHideEnabled,
+                AutoHideMs = rowTemplate.AutoHideMs,
+            };
+            row.ApplyPendingVmixTarget(rowTemplate.VmixInputTitle);
+            Rows.Add(row);
+        }
+
+        if (Rows.Count == 0) AddRow();
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;

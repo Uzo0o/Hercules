@@ -30,7 +30,7 @@
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>
                         <Border Classes="Card">
-                            <Grid RowDefinitions="Auto, Auto" ColumnDefinitions="*" RowSpacing="12">
+                            <Grid RowDefinitions="Auto, Auto, Auto" ColumnDefinitions="*" RowSpacing="12">
 
                                 <!-- Line 1: Trigger + Graphic -->
                                 <Grid Grid.Row="0" ColumnDefinitions="*, *">
@@ -74,6 +74,13 @@
                                                   Width="14" Height="14"/>
                                     </Button>
                                 </Grid>
+
+                                <!-- Loaded from a template but not yet matched to a live vMix
+                                     input - clears itself once "Refresh vMix Sources" finds it -->
+                                <TextBlock Grid.Row="2" Classes="Muted" FontSize="12"
+                                           Foreground="{StaticResource AccentYellow}"
+                                           IsVisible="{Binding NeedsVmixReselect}"
+                                           Text="⚠ From template - click &quot;Refresh vMix Sources&quot; (or reselect above) once vMix is connected"/>
 
                             </Grid>
                         </Border>

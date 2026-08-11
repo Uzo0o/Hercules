@@ -1,4 +1,4 @@
-﻿﻿using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -196,6 +196,9 @@ public class FibaService
                             {
                                 DiffAndTrackStats(team.TeamNumber, playerNumber: null, team.Total.Team, isBaseline);
 
+                                var roster = team.TeamNumber == 1 ? GameState.HomeRoster : GameState.AwayRoster;
+                                var playerStats = new List<FibaPlayerBoxScore>(team.Total.Players.Count);
+
                                 foreach (var player in team.Total.Players)
                                 {
                                     var previousPlayerStats = DiffAndTrackStats(team.TeamNumber, player.PlayerNumber, player, isBaseline);
@@ -204,10 +207,30 @@ public class FibaService
                                     {
                                         UpdateLastScorerIfThisWasAScore(team.TeamNumber, player, previousPlayerStats);
                                     }
+
+                                    var rosterEntry = roster.FirstOrDefault(p => p.Pno == player.PlayerNumber);
+                                    playerStats.Add(BuildPlayerBoxScore(player, rosterEntry));
+                                }
+
+                                if (team.TeamNumber == 1)
+                                {
+                                    GameState.HomeTeamStats = team.Total.Team;
+                                    GameState.HomePlayerStats = playerStats;
+                                }
+                                else if (team.TeamNumber == 2)
+                                {
+                                    GameState.AwayTeamStats = team.Total.Team;
+                                    GameState.AwayPlayerStats = playerStats;
                                 }
                             }
 
                             _boxScoreBaselineEstablished = true;
+
+                            // Every boxscore snapshot is a real state change (fouls,
+                            // rebounds, assists etc, not just scoring) - previously
+                            // this only fired indirectly via UpdateLastScorerIfThisWasAScore,
+                            // so a foul-only or rebound-only update never reached the UI.
+                            OnGameStateChanged?.Invoke();
                         }
                     }
                     catch (JsonException jex)
@@ -245,6 +268,7 @@ public class FibaService
                                 if (team.TeamNumber == 1)
                                 {
                                     GameState.HomeRoster = roster;
+                                    GameState.HomeTeamName = team.Detail.TeamName;
                                     GameState.HomeHeadCoach = FormatPerson(team.Coach);
                                     GameState.HomeAssistantCoach1 = FormatPerson(team.AssistCoach1);
                                     GameState.HomeAssistantCoach2 = FormatPerson(team.AssistCoach2);
@@ -252,6 +276,7 @@ public class FibaService
                                 else if (team.TeamNumber == 2)
                                 {
                                     GameState.AwayRoster = roster;
+                                    GameState.AwayTeamName = team.Detail.TeamName;
                                     GameState.AwayHeadCoach = FormatPerson(team.Coach);
                                     GameState.AwayAssistantCoach1 = FormatPerson(team.AssistCoach1);
                                     GameState.AwayAssistantCoach2 = FormatPerson(team.AssistCoach2);
@@ -292,32 +317,55 @@ public class FibaService
                         var pbp = JsonSerializer.Deserialize<FibaPlayByPlay>(json);
                         if (pbp != null && pbp.Actions != null)
                         {
-                            // If this is the first playbyplay message since connecting,
-                            // its "new" actions are really match history, not something
-                            // that just happened - absorb them into the seen set without
-                            // notifying subscribers.
                             bool isBackfill = !_playByPlayBaselineEstablished;
+                            
+                            // 1. Variables to track the max cumulative score at the end of each period
+                            int h1 = 0, a1 = 0;
+                            int h2 = 0, a2 = 0;
+                            int h3 = 0, a3 = 0;
+                            int h4 = 0, a4 = 0;
 
                             foreach (var action in pbp.Actions)
                             {
-                                // Signature of the fields that actually matter for output.
-                                // If FIBA edits an action (e.g. corrects a score or clock),
-                                // this signature changes and we re-broadcast it.
-                                string signature = $"{action.ActionType}|{action.SubType}|{action.Score1}|{action.Score2}|{action.Clock}|{action.Period}|{action.TeamNumber}|{action.PlayerNumber}";
+                                // 2. Find the highest cumulative score achieved during each quarter
+                                if (action.Period == 1) { h1 = Math.Max(h1, action.Score1); a1 = Math.Max(a1, action.Score2); }
+                                else if (action.Period == 2) { h2 = Math.Max(h2, action.Score1); a2 = Math.Max(a2, action.Score2); }
+                                else if (action.Period == 3) { h3 = Math.Max(h3, action.Score1); a3 = Math.Max(a3, action.Score2); }
+                                else if (action.Period >= 4) { h4 = Math.Max(h4, action.Score1); a4 = Math.Max(a4, action.Score2); }
 
+                                string signature = $"{action.ActionType}|{action.SubType}|{action.Score1}|{action.Score2}|{action.Clock}|{action.Period}|{action.TeamNumber}|{action.PlayerNumber}";
                                 if (_seenActions.TryGetValue(action.ActionNumber, out var previousSignature)
                                     && previousSignature == signature)
                                 {
-                                    continue; // already processed, nothing changed
+                                    continue; 
                                 }
-
+                                
                                 _seenActions[action.ActionNumber] = signature;
-
                                 if (!isBackfill)
                                 {
                                     OnActionReceived?.Invoke(action);
                                 }
                             }
+
+                            // 3. Carry over cumulative scores for unplayed quarters (prevents negative scores)
+                            h2 = Math.Max(h2, h1); h3 = Math.Max(h3, h2); h4 = Math.Max(h4, h3);
+                            a2 = Math.Max(a2, a1); a3 = Math.Max(a3, a2); a4 = Math.Max(a4, a3);
+
+                            // 4. Calculate isolated points per quarter and save to GameState
+                            GameState.HomeScoreQ1 = h1;           
+                            GameState.AwayScoreQ1 = a1;
+                            
+                            GameState.HomeScoreQ2 = h2 - h1;      
+                            GameState.AwayScoreQ2 = a2 - a1;
+                            
+                            GameState.HomeScoreQ3 = h3 - h2;      
+                            GameState.AwayScoreQ3 = a3 - a2;
+                            
+                            GameState.HomeScoreQ4 = h4 - h3;      
+                            GameState.AwayScoreQ4 = a4 - a3;
+                            
+                            // Force the dashboard to update immediately with the new quarter stats
+                            OnGameStateChanged?.Invoke();
 
                             _playByPlayBaselineEstablished = true;
                         }
@@ -326,10 +374,6 @@ public class FibaService
                     {
                         Console.WriteLine($"[FIBA PLAYBYPLAY PARSE ERROR]: {jex.Message}");
                     }
-                    break;
-        
-                default:
-                    Console.WriteLine($"[FIBA DEBUG] Unmapped message type '{rootMessage.Type}', ignoring payload.");
                     break;
             }
         }
@@ -413,6 +457,39 @@ public class FibaService
 
         OnGameStateChanged?.Invoke();
     }
+
+    // Merges a raw boxscore snapshot for one player with their roster entry
+    // (name/number/position) into the UI-facing FibaPlayerBoxScore shape
+    // stored on GameState. rosterEntry can be null if a boxscore message
+    // arrives before the "teams" message has been processed yet - falls
+    // back to the pno itself so the row still renders sensibly.
+    private static FibaPlayerBoxScore BuildPlayerBoxScore(FibaBoxScorePlayerStats stats, FibaRosterPlayer? rosterEntry) => new()
+    {
+        Pno = stats.PlayerNumber,
+        Number = rosterEntry?.Number ?? stats.PlayerNumber.ToString(),
+        Name = rosterEntry?.Name ?? string.Empty,
+        Position = rosterEntry?.Position ?? string.Empty,
+
+        Points = stats.Points,
+        TwoPointersMade = stats.TwoPointersMade,
+        TwoPointersAttempted = stats.TwoPointersAttempted,
+        ThreePointersMade = stats.ThreePointersMade,
+        ThreePointersAttempted = stats.ThreePointersAttempted,
+        FreeThrowsMade = stats.FreeThrowsMade,
+        FreeThrowsAttempted = stats.FreeThrowsAttempted,
+        FieldGoalsMade = stats.FieldGoalsMade,
+        FieldGoalsAttempted = stats.FieldGoalsAttempted,
+        FieldGoalsPercentage = stats.FieldGoalsPercentage,
+        ReboundsOffensive = stats.ReboundsOffensive,
+        ReboundsDefensive = stats.ReboundsDefensive,
+        ReboundsTotal = stats.ReboundsTotal,
+        Assists = stats.Assists,
+        Steals = stats.Steals,
+        Blocks = stats.Blocks,
+        Turnovers = stats.Turnovers,
+        FoulsPersonal = stats.FoulsPersonal,
+        FoulsTechnical = stats.FoulsTechnical,
+    };
 
     private static string FormatName(string firstName, string familyName) =>
         $"{firstName} {familyName}".Trim();

@@ -1,10 +1,13 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Linq;
 using System.Runtime.CompilerServices;
 using Avalonia.Threading;
 using Hercules.Models;
 using Hercules.Models.Fiba; // Needed for FibaAction
+using Hercules.Models.Templates;
 using Hercules.Services;
 
 namespace Hercules.ViewModels;
@@ -121,6 +124,11 @@ public class DashboardViewModel : INotifyPropertyChanged
         var inputs = await _vmixService.FetchActiveGraphicsAsync();
         MasterVmixInputs.Clear();
         foreach (var input in inputs) MasterVmixInputs.Add(input);
+
+        // A row restored from a template that couldn't find its vMix input/
+        // field yet (vMix wasn't open, or hadn't been refreshed yet) gets
+        // another shot at matching every time the source list changes.
+        foreach (var row in MappingRows) row.TryResolvePendingVmixMatch();
     }
 
     public void AddRow() => MappingRows.Add(new MappingRowViewModel(FibaStatDefinitions, MasterVmixInputs));
@@ -128,6 +136,39 @@ public class DashboardViewModel : INotifyPropertyChanged
     public void RemoveRow(MappingRowViewModel row)
     {
         if (MappingRows.Contains(row)) MappingRows.Remove(row);
+    }
+
+    // --- Template save/load ---
+    // See MainWindow.axaml.cs for where this is combined with the Script
+    // Trigger and Overlay Automation rows into one saved HerculesTemplate file.
+    public List<MappingRowTemplate> ExportMappingRows() => MappingRows.Select(row => new MappingRowTemplate
+    {
+        FibaStatDisplayName = row.SelectedFibaStat?.DisplayName,
+        Prefix = row.Prefix,
+        Suffix = row.Suffix,
+        VmixInputTitle = row.SelectedInput?.Title,
+        VmixFieldName = row.SelectedField?.Name,
+    }).ToList();
+
+    public void ApplyMappingRows(List<MappingRowTemplate> rowTemplates)
+    {
+        MappingRows.Clear();
+
+        foreach (var rowTemplate in rowTemplates)
+        {
+            var row = new MappingRowViewModel(FibaStatDefinitions, MasterVmixInputs)
+            {
+                SelectedFibaStat = FibaStatDefinitions.FirstOrDefault(d => d.DisplayName == rowTemplate.FibaStatDisplayName),
+                Prefix = rowTemplate.Prefix,
+                Suffix = rowTemplate.Suffix,
+            };
+            row.ApplyPendingVmixTarget(rowTemplate.VmixInputTitle, rowTemplate.VmixFieldName);
+            MappingRows.Add(row);
+        }
+
+        // An empty saved template (or a brand new one) should still leave
+        // the user one blank row to start typing into, same as a fresh app launch.
+        if (MappingRows.Count == 0) AddRow();
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
